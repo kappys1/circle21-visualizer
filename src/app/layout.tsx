@@ -21,9 +21,14 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Wodcelona Visualization",
+  title: "Circle 21 Visualizer",
   description:
     "Live leaderboard explorer with points, team details, athlete workout results and video links.",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml", sizes: "any" }],
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
