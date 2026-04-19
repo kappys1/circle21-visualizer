@@ -1,65 +1,215 @@
-import Image from "next/image";
+"use client";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { AthleteResultsDialog } from "@/features/leaderboard/components/athlete-results-dialog";
+import { CategorySelector } from "@/features/leaderboard/components/category-selector";
+import { LeaderboardTable } from "@/features/leaderboard/components/leaderboard-table";
+import { TeamDetailCard } from "@/features/leaderboard/components/team-detail-card";
+import { useLeaderboardDashboard } from "@/features/leaderboard/hooks/use-leaderboard-dashboard";
+import { formatPoints } from "@/features/leaderboard/utils";
 
 export default function Home() {
+  const dashboard = useLeaderboardDashboard();
+
+  const onSubmit: React.ComponentProps<"form">["onSubmit"] = (event) => {
+    event.preventDefault();
+    dashboard.applySlug();
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="relative min-h-dvh overflow-x-hidden">
+      <div className="pointer-events-none fixed -left-24 -top-32 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
+      <div className="pointer-events-none fixed -right-20 bottom-0 h-80 w-80 rounded-full bg-sky-400/10 blur-3xl" />
+
+      <main className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 py-4 md:px-6 md:py-6">
+        <Card>
+          <CardHeader className="gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-cyan-300">
+                  Wodcelona Visualizer
+                </p>
+                <CardTitle className="font-(--font-syne) text-2xl md:text-3xl">
+                  Clasificación y detalle live
+                </CardTitle>
+                <CardDescription>
+                  Menos puntos significa mejor posición. El ranking se ordena de
+                  menor a mayor.
+                </CardDescription>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">
+                  {dashboard.divisionMode === "team"
+                    ? "Modo equipos"
+                    : "Modo individual"}
+                </Badge>
+                {dashboard.bootLoading && (
+                  <Badge variant="secondary">Cargando evento</Badge>
+                )}
+              </div>
+            </div>
+
+            <form
+              onSubmit={onSubmit}
+              className="flex w-full flex-col gap-2 sm:flex-row"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+              <Input
+                value={dashboard.slugInput}
+                onChange={(event) => dashboard.setSlugInput(event.target.value)}
+                placeholder="wodcelona-online-qualifier-2026"
+                aria-label="Slug del evento"
+                className="sm:max-w-xl"
+              />
+              <Button
+                type="submit"
+                className="sm:w-auto"
+                disabled={dashboard.bootLoading}
+              >
+                Cargar evento
+              </Button>
+            </form>
+          </CardHeader>
+
+          <CardContent className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            <Card className="bg-slate-950/40">
+              <CardHeader className="p-3">
+                <CardDescription>Competición</CardDescription>
+                <CardTitle className="text-sm leading-tight">
+                  {dashboard.competition?.name ??
+                    (dashboard.bootLoading ? "Cargando..." : "-")}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+
+            <Card className="bg-slate-950/40">
+              <CardHeader className="p-3">
+                <CardDescription>Categoría</CardDescription>
+                <CardTitle className="text-sm leading-tight">
+                  {dashboard.selectedDivision?.name ?? "-"}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+
+            <Card className="bg-slate-950/40">
+              <CardHeader className="p-3">
+                <CardDescription>Participantes</CardDescription>
+                <CardTitle className="text-xl">
+                  {dashboard.totalEntries}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+
+            <Card className="bg-slate-950/40">
+              <CardHeader className="p-3">
+                <CardDescription>Puntos acumulados</CardDescription>
+                <CardTitle className="text-xl text-sky-300">
+                  {formatPoints(dashboard.totalPoints)}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+          </CardContent>
+        </Card>
+
+        {dashboard.error && (
+          <Card className="border-rose-400/40 bg-rose-500/10 text-rose-100">
+            <CardContent className="p-3 text-sm">{dashboard.error}</CardContent>
+          </Card>
+        )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Selector de categoría</CardTitle>
+            <CardDescription>
+              Usa un selector único para cambiar de división sin romper flujo
+              individual/equipos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CategorySelector
+              divisions={dashboard.divisions}
+              selectedDivisionId={dashboard.selectedDivisionId}
+              onDivisionChange={dashboard.setSelectedDivisionId}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+          </CardContent>
+        </Card>
+
+        <section className="grid gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-start justify-between gap-2">
+              <div>
+                <CardTitle className="text-lg">Clasificación</CardTitle>
+                <CardDescription>
+                  Ordenada por puntos ascendentes (los mejores arriba). En modo
+                  equipos, haz click en una fila para abrir su drawer.
+                </CardDescription>
+              </div>
+              {dashboard.boardLoading && (
+                <Badge variant="secondary">Actualizando</Badge>
+              )}
+            </CardHeader>
+
+            <CardContent>
+              <LeaderboardTable
+                mode={dashboard.divisionMode}
+                rows={dashboard.leaderboardRows}
+                wodColumns={dashboard.wodColumns}
+                loading={dashboard.boardLoading}
+                selectedTeamId={dashboard.selectedTeamId}
+                onSelectTeam={dashboard.selectTeam}
+                onSelectAthlete={dashboard.openAthletePanel}
+              />
+            </CardContent>
+          </Card>
+        </section>
       </main>
+
+      <TeamDetailCard
+        mode={dashboard.divisionMode}
+        open={
+          dashboard.divisionMode === "team" && Boolean(dashboard.selectedTeamId)
+        }
+        onOpenChange={(open) => {
+          if (!open) {
+            dashboard.closeTeamPanel();
+          }
+        }}
+        loading={dashboard.teamLoading}
+        teamsCount={dashboard.teamsDirectory.length}
+        selectedTeamId={dashboard.selectedTeamId}
+        selectedTeamPreview={dashboard.selectedTeamPreview}
+        selectedTeamDetail={dashboard.selectedTeamDetail}
+        teamMembers={dashboard.teamMembers}
+        wodColumns={dashboard.wodColumns}
+        selectedAthlete={dashboard.selectedAthlete}
+        athleteLoading={dashboard.athleteLoading}
+        athleteResults={dashboard.sortedAthleteResults}
+        onSelectAthlete={dashboard.openAthletePanel}
+        onClearAthlete={dashboard.closeAthletePanel}
+      />
+
+      {dashboard.divisionMode !== "team" && (
+        <AthleteResultsDialog
+          open={Boolean(dashboard.selectedAthlete)}
+          athlete={dashboard.selectedAthlete}
+          loading={dashboard.athleteLoading}
+          results={dashboard.sortedAthleteResults}
+          onOpenChange={(open) => {
+            if (!open) {
+              dashboard.closeAthletePanel();
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
