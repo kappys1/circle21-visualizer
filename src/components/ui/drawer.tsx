@@ -41,7 +41,7 @@ function DrawerOverlay({
 }
 
 const drawerVariants = cva(
-  "fixed z-80 flex h-auto max-h-dvh touch-pan-y flex-col gap-4 overflow-x-hidden overflow-y-auto overscroll-contain border border-slate-700 bg-slate-950 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] text-slate-100 shadow-2xl duration-300 [-webkit-overflow-scrolling:touch] sm:p-6 sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))]",
+  "fixed z-80 flex h-auto max-h-dvh data-[vaul-drawer-direction=left]:touch-pan-y data-[vaul-drawer-direction=right]:touch-pan-y flex-col gap-4 overflow-x-hidden overflow-y-auto overscroll-contain border border-slate-700 bg-slate-950 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] text-slate-100 shadow-2xl duration-300 [-webkit-overflow-scrolling:touch] sm:p-6 sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))]",
   {
     variants: {
       side: {
@@ -66,14 +66,25 @@ function DrawerContent({
   side = "right",
   className,
   children,
+  style,
   ...props
 }: Readonly<DrawerContentProps>) {
+  const contentStyle =
+    side === "right" || side === "left"
+      ? {
+          touchAction: "pan-y" as const,
+          WebkitOverflowScrolling: "touch" as const,
+          ...style,
+        }
+      : style;
+
   return (
     <DrawerPortal>
       <DrawerOverlay />
       <DrawerPrimitive.Content
         data-vaul-no-drag
         className={cn(drawerVariants({ side }), className)}
+        style={contentStyle}
         {...props}
       >
         <div

@@ -39,17 +39,51 @@ import {
 
 const DEFAULT_SLUG = "wodcelona-online-qualifier-2026";
 const SLUG_QUERY_PARAM = "event";
+const CATEGORY_QUERY_PARAM = "category";
 
-function getSlugFromQueryParam(): string {
+function getQueryParamValue(paramName: string): string | null {
   if (globalThis.window === undefined) {
-    return DEFAULT_SLUG;
+    return null;
   }
 
-  const querySlug = new URLSearchParams(globalThis.window.location.search)
-    .get(SLUG_QUERY_PARAM)
+  const queryValue = new URLSearchParams(globalThis.window.location.search)
+    .get(paramName)
     ?.trim();
 
+  return queryValue && queryValue.length > 0 ? queryValue : null;
+}
+
+function getSlugFromQueryParam(): string {
+  const querySlug = getQueryParamValue(SLUG_QUERY_PARAM);
+
   return querySlug && querySlug.length > 0 ? querySlug : DEFAULT_SLUG;
+}
+
+function getCategoryFromQueryParam(): string | null {
+  return getQueryParamValue(CATEGORY_QUERY_PARAM);
+}
+
+function resolveInitialDivisionId(divisions: CompetitionDivision[]): string {
+  const fallbackDivisionId = divisions[0]?.id ?? "";
+  const queryCategory = getCategoryFromQueryParam();
+
+  if (!queryCategory) {
+    return fallbackDivisionId;
+  }
+
+  const normalizedCategory = queryCategory.toLowerCase();
+
+  const matchedDivision = divisions.find((division) => {
+    const candidateValues = [division.id, division.name, division.category];
+
+    return candidateValues.some(
+      (value) =>
+        typeof value === "string" &&
+        value.trim().toLowerCase() === normalizedCategory,
+    );
+  });
+
+  return matchedDivision?.id ?? fallbackDivisionId;
 }
 
 interface LeaderboardDashboardApi extends LeaderboardDashboardState {
@@ -127,18 +161,34 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
     }
 
     const currentUrl = new URL(globalThis.window.location.href);
+    const nextCategory = selectedDivisionId.trim();
 
-    if (currentUrl.searchParams.get(SLUG_QUERY_PARAM) === activeSlug) {
+    const isCategoryAlreadySynced =
+      nextCategory.length > 0
+        ? currentUrl.searchParams.get(CATEGORY_QUERY_PARAM) === nextCategory
+        : !currentUrl.searchParams.has(CATEGORY_QUERY_PARAM);
+
+    if (
+      currentUrl.searchParams.get(SLUG_QUERY_PARAM) === activeSlug &&
+      isCategoryAlreadySynced
+    ) {
       return;
     }
 
     currentUrl.searchParams.set(SLUG_QUERY_PARAM, activeSlug);
+
+    if (nextCategory.length > 0) {
+      currentUrl.searchParams.set(CATEGORY_QUERY_PARAM, nextCategory);
+    } else {
+      currentUrl.searchParams.delete(CATEGORY_QUERY_PARAM);
+    }
+
     globalThis.window.history.replaceState(
       globalThis.window.history.state,
       "",
       `${currentUrl.pathname}?${currentUrl.searchParams.toString()}${currentUrl.hash}`,
     );
-  }, [activeSlug]);
+  }, [activeSlug, selectedDivisionId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -175,8 +225,9 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
         setCompetition(competitionResponse);
         setWodCatalog(wodsResponse);
 
-        const initialDivision =
-          competitionResponse.competition_division[0]?.id ?? "";
+        const initialDivision = resolveInitialDivisionId(
+          competitionResponse.competition_division,
+        );
         setSelectedDivisionIdState(initialDivision);
       } catch (requestError) {
         if (!cancelled) {

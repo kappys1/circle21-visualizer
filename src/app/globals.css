@@ -37,11 +37,5 @@ body {
   background: var(--app-background);
   background-repeat: no-repeat;
   background-size: cover;
-  background-attachment: scroll;
-}
-
-@media (min-width: 768px) {
-  body {
-    background-attachment: fixed;
-  }
+  background-attachment: fixed;
 }

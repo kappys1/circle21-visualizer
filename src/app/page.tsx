@@ -37,17 +37,14 @@ export default function Home() {
   };
 
   return (
-    <div className="relative min-h-dvh overflow-x-hidden">
-      <main className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 py-4 md:px-6 md:py-6">
+    <div className="relative min-h-dvh">
+      <main className="relative z-10 mx-auto flex min-w-0 w-full max-w-7xl flex-col gap-4 px-3 py-4 md:px-6 md:py-6">
         <Card>
           <CardHeader className="gap-3 pb-5">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-cyan-300">
+                <CardTitle className="font-(--font-syne) text-2xl md:text-3xl pt-3 uppercase tracking-[0.18em] text-cyan-300">
                   Circle 21 Visualizer
-                </p>
-                <CardTitle className="font-(--font-syne) text-2xl md:text-3xl pt-3">
-                  Clasificación y detalle live
                 </CardTitle>
               </div>
 
@@ -155,7 +152,7 @@ export default function Home() {
           </Card>
         )}
 
-        <section className="grid gap-4">
+        <section className="grid min-w-0 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-start justify-between gap-2 pb-6">
               <div>
@@ -167,7 +164,7 @@ export default function Home() {
               )}
             </CardHeader>
 
-            <CardContent className="gap-4">
+            <CardContent className="min-w-0 gap-4">
               <CategorySelector
                 className="mb-6"
                 divisions={dashboard.divisions}

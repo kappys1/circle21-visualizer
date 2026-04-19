@@ -187,131 +187,154 @@ export function LeaderboardTable({
   };
 
   const colSpan = 3 + wodColumns.length;
+  const tableMinWidth = useMemo(() => {
+    const rankColumnWidth = 56;
+    const nameColumnWidth = 176;
+    const pointsColumnWidth = 96;
+    const wodColumnWidth = 72;
+
+    return (
+      rankColumnWidth +
+      nameColumnWidth +
+      pointsColumnWidth +
+      wodColumns.length * wodColumnWidth
+    );
+  }, [wodColumns.length]);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-800/80">
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-slate-950/70">
-            {renderSortableHead({
-              label: "#",
-              sortKey: "rank",
-              className: "w-14",
-            })}
-            {renderSortableHead({
-              label: mode === "team" ? "Equipo" : "Atleta",
-              sortKey: "name",
-            })}
-            {renderSortableHead({
-              label: "Puntos",
-              sortKey: "points",
-              className: "w-28",
-            })}
-            {wodColumns.map((wod) =>
-              renderSortableHead({
-                itemKey: wod.key,
-                label: wod.shortLabel,
-                sortKey: `wod:${wod.key}`,
-                className: "w-24",
-                title: wod.fullLabel,
-              }),
-            )}
-          </TableRow>
-        </TableHeader>
-
-        <TableBody>
-          {loading && (
-            <TableRow>
-              <TableCell
-                colSpan={colSpan}
-                className="py-8 text-center text-slate-400"
-              >
-                Actualizando clasificación...
-              </TableCell>
+    <div className="w-full min-w-0 overflow-hidden rounded-lg border border-slate-800/80">
+      <div className="w-full max-w-full touch-pan-x overflow-x-auto overflow-y-hidden overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+        <Table
+          className="w-max min-w-full text-sm"
+          style={{ minWidth: `${tableMinWidth}px` }}
+        >
+          <TableHeader>
+            <TableRow className="bg-slate-950/70">
+              {renderSortableHead({
+                label: "#",
+                sortKey: "rank",
+                className: "w-14 whitespace-nowrap",
+              })}
+              {renderSortableHead({
+                label: mode === "team" ? "Equipo" : "Atleta",
+                sortKey: "name",
+                className: "min-w-44",
+              })}
+              {renderSortableHead({
+                label: "Puntos",
+                sortKey: "points",
+                className: "w-24 whitespace-nowrap",
+              })}
+              {wodColumns.map((wod) =>
+                renderSortableHead({
+                  itemKey: wod.key,
+                  label: wod.shortLabel,
+                  sortKey: `wod:${wod.key}`,
+                  className: "w-20 whitespace-nowrap",
+                  title: wod.fullLabel,
+                }),
+              )}
             </TableRow>
-          )}
+          </TableHeader>
 
-          {!loading && rows.length === 0 && (
-            <TableRow>
-              <TableCell
-                colSpan={colSpan}
-                className="py-8 text-center text-slate-400"
-              >
-                No hay participantes para esta categoría.
-              </TableCell>
-            </TableRow>
-          )}
-
-          {!loading &&
-            sortedRows.map((row) => {
-              const userId =
-                "user_id" in row && typeof row.user_id === "string"
-                  ? row.user_id
-                  : null;
-              const isSelectedTeam =
-                mode === "team" && selectedTeamId === row.id;
-              const isCutoffRow = cutoffRowId === row.id;
-              const rank = rankLookup[row.id] ?? "-";
-
-              const openRowDetail = () => {
-                if (mode === "team") {
-                  onSelectTeam(row as LeaderboardTeamRow);
-                  return;
-                }
-
-                onSelectAthlete(
-                  (row as LeaderboardAthleteRow).id,
-                  row.name,
-                  userId,
-                );
-              };
-
-              return (
-                <TableRow
-                  key={row.id}
-                  data-state={isSelectedTeam ? "selected" : undefined}
-                  className={`${
-                    isCutoffRow ? "border-b-2 border-b-amber-400/90 " : ""
-                  }group cursor-pointer`}
-                  onClick={openRowDetail}
+          <TableBody>
+            {loading && (
+              <TableRow>
+                <TableCell
+                  colSpan={colSpan}
+                  className="py-8 text-center text-slate-400"
                 >
-                  <TableCell className="font-mono text-slate-400">
-                    {rank}
-                  </TableCell>
+                  Actualizando clasificación...
+                </TableCell>
+              </TableRow>
+            )}
 
-                  <TableCell>
-                    <p className="font-semibold text-slate-100 group-hover:text-sky-300">
-                      {row.name}
-                    </p>
+            {!loading && rows.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={colSpan}
+                  className="py-8 text-center text-slate-400"
+                >
+                  No hay participantes para esta categoría.
+                </TableCell>
+              </TableRow>
+            )}
 
-                    <p className="mt-1 text-xs text-slate-400">
-                      {(row.country ?? "-") +
-                        " / " +
-                        (row.club_name ?? "Sin club")}
-                    </p>
-                  </TableCell>
+            {!loading &&
+              sortedRows.map((row) => {
+                const userId =
+                  "user_id" in row && typeof row.user_id === "string"
+                    ? row.user_id
+                    : null;
+                const isSelectedTeam =
+                  mode === "team" && selectedTeamId === row.id;
+                const isCutoffRow = cutoffRowId === row.id;
+                const rank = rankLookup[row.id] ?? "-";
 
-                  <TableCell className="font-semibold text-sky-300">
-                    {formatPoints(row.points)}
-                  </TableCell>
+                const openRowDetail = () => {
+                  if (mode === "team") {
+                    onSelectTeam(row as LeaderboardTeamRow);
+                    return;
+                  }
 
-                  {wodColumns.map((wod) => {
-                    const cell = wod.lookup[row.id];
+                  onSelectAthlete(
+                    (row as LeaderboardAthleteRow).id,
+                    row.name,
+                    userId,
+                  );
+                };
 
-                    return (
-                      <TableCell
-                        key={`${row.id}-${wod.key}`}
-                        className="text-slate-300"
-                      >
-                        {cell ? formatPoints(cell.points) : "-"}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              );
-            })}
-        </TableBody>
-      </Table>
+                return (
+                  <TableRow
+                    key={row.id}
+                    data-state={isSelectedTeam ? "selected" : undefined}
+                    className={`${
+                      isCutoffRow ? "border-b-2 border-b-amber-400/90 " : ""
+                    }group cursor-pointer`}
+                    onClick={openRowDetail}
+                  >
+                    <TableCell className="font-mono text-slate-400">
+                      {rank}
+                    </TableCell>
+
+                    <TableCell className="min-w-44">
+                      <p className="whitespace-nowrap font-semibold text-slate-100 group-hover:text-sky-300">
+                        {row.name}
+                      </p>
+
+                      <p className="mt-1 hidden text-xs text-slate-400 md:block">
+                        {(row.country ?? "-") +
+                          " / " +
+                          (row.club_name ?? "Sin club")}
+                      </p>
+                    </TableCell>
+
+                    <TableCell className="whitespace-nowrap font-semibold text-sky-300">
+                      {formatPoints(row.points)}
+                    </TableCell>
+
+                    {wodColumns.map((wod) => {
+                      const cell = wod.lookup[row.id];
+
+                      return (
+                        <TableCell
+                          key={`${row.id}-${wod.key}`}
+                          className="whitespace-nowrap text-slate-300"
+                        >
+                          {cell ? formatPoints(cell.points) : "-"}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                );
+              })}
+          </TableBody>
+        </Table>
+      </div>
+
+      <p className="border-t border-slate-800/80 px-3 py-2 text-[11px] text-slate-400 md:hidden">
+        Desliza horizontalmente para ver todos los WODs.
+      </p>
     </div>
   );
 }
