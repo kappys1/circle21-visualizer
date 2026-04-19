@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/drawer";
 import {
   findFirstText,
+  formatCountryWithFlag,
   formatPoints,
   formatTimeWithMilliseconds,
   parsePoints,
@@ -114,6 +115,7 @@ export function TeamDetailCard({
   const teamCountry =
     findFirstText(selectedTeamDetail?.country, selectedTeamPreview?.country) ??
     "-";
+  const teamCountryLabel = formatCountryWithFlag(teamCountry);
   const teamClub =
     findFirstText(
       selectedTeamDetail?.club_name,
@@ -281,7 +283,9 @@ export function TeamDetailCard({
               <p className="text-xs uppercase tracking-wide text-slate-400">
                 Pais
               </p>
-              <p className="mt-1 font-medium text-slate-100">{teamCountry}</p>
+              <p className="mt-1 font-medium text-slate-100">
+                {teamCountryLabel}
+              </p>
             </div>
 
             <div className="rounded-md border border-slate-800 bg-slate-950/40 p-2">
@@ -368,6 +372,8 @@ export function TeamDetailCard({
                   const memberName = resolveMemberName(member, index);
                   const memberAvatar = resolveMemberAvatar(member);
                   const memberCountry = resolveMemberCountry(member);
+                  const memberCountryLabel =
+                    formatCountryWithFlag(memberCountry);
                   const athleteResultEntries = athleteId
                     ? teamAthleteResults[athleteId]
                     : undefined;
@@ -420,7 +426,7 @@ export function TeamDetailCard({
                                 {memberName}
                               </p>
                               <p className="truncate text-xs text-slate-400">
-                                {memberCountry}
+                                {memberCountryLabel}
                               </p>
                             </div>
                           </div>

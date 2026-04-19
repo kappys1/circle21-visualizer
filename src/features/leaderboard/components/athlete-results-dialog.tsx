@@ -21,6 +21,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import {
+  formatCountryWithFlag,
   formatPoints,
   formatTimeWithMilliseconds,
   parsePoints,
@@ -41,6 +42,8 @@ export function AthleteResultsDialog({
   results,
   onOpenChange,
 }: Readonly<AthleteResultsDialogProps>) {
+  const athleteCountry = formatCountryWithFlag(athlete?.country);
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent side="right" className="overflow-y-auto sm:max-w-[520px]">
@@ -49,8 +52,11 @@ export function AthleteResultsDialog({
             <DrawerTitle>{athlete?.name ?? "Detalle de atleta"}</DrawerTitle>
             <Badge variant="outline">WODs: {results.length}</Badge>
           </div>
-          <DrawerDescription>
-            ID atleta: {athlete?.athleteId ?? "-"}
+          <DrawerDescription className="space-y-1">
+            <span className="block">
+              ID atleta: {athlete?.athleteId ?? "-"}
+            </span>
+            <span className="block">Pais: {athleteCountry}</span>
           </DrawerDescription>
         </DrawerHeader>
 

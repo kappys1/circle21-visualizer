@@ -45,6 +45,7 @@ interface LeaderboardTableProps {
   onSelectAthlete: (
     athleteId: string,
     name: string,
+    country?: string | null,
     userId?: string | null,
   ) => void;
 }
@@ -264,6 +265,7 @@ export function LeaderboardTable({
                   onSelectAthlete(
                     (row as LeaderboardAthleteRow).id,
                     row.name,
+                    row.country ?? null,
                     userId,
                   );
                 };

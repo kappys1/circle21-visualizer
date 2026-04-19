@@ -1,6 +1,78 @@
 import type { CompetitionDivision, DivisionMode } from "@/lib/types";
 
 const WOD_SHORT_PATTERN = /(\d{2}\.\d[A-Z]?)/i;
+const FLAG_REGIONAL_INDICATOR_PATTERN = /[\u{1F1E6}-\u{1F1FF}]{2}/u;
+const COUNTRY_ALIAS_TO_CODE: Record<string, string> = {
+  UK: "GB",
+  EEUU: "US",
+  USA: "US",
+  ESTADOSUNIDOS: "US",
+  UNITEDSTATES: "US",
+  ESPANA: "ES",
+};
+
+let countryNameToCodeCache: Map<string, string> | null = null;
+
+function normalizeCountryKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "");
+}
+
+function toFlagEmoji(countryCode: string): string {
+  return [...countryCode]
+    .map((char) => String.fromCodePoint(char.charCodeAt(0) + 127397))
+    .join("");
+}
+
+function getCountryNameToCodeMap(): Map<string, string> {
+  if (countryNameToCodeCache) {
+    return countryNameToCodeCache;
+  }
+
+  const map = new Map<string, string>();
+
+  Object.entries(COUNTRY_ALIAS_TO_CODE).forEach(([alias, code]) => {
+    map.set(normalizeCountryKey(alias), code);
+  });
+
+  try {
+    const supportedValuesOf = (
+      Intl as unknown as { supportedValuesOf?: (key: string) => string[] }
+    ).supportedValuesOf;
+    const regionCodes =
+      typeof supportedValuesOf === "function"
+        ? supportedValuesOf("region").filter((code) => code.length === 2)
+        : [];
+
+    if (regionCodes.length > 0) {
+      const locales = ["en", "es"];
+
+      locales.forEach((locale) => {
+        const displayNames = new Intl.DisplayNames([locale], {
+          type: "region",
+        });
+
+        regionCodes.forEach((countryCode) => {
+          const displayName = displayNames.of(countryCode);
+
+          if (!displayName) {
+            return;
+          }
+
+          map.set(normalizeCountryKey(displayName), countryCode);
+        });
+      });
+    }
+  } catch {
+    // Ignore unsupported Intl APIs and rely on aliases only.
+  }
+
+  countryNameToCodeCache = map;
+  return map;
+}
 
 function normalizeMilliseconds(value: number): number {
   if (!Number.isFinite(value)) {
@@ -101,6 +173,62 @@ export function parsePoints(value: unknown): number | null {
   }
 
   return null;
+}
+
+export function countryToFlagEmoji(
+  country: string | null | undefined,
+): string | null {
+  if (!country) {
+    return null;
+  }
+
+  const trimmed = country.trim();
+
+  if (!trimmed || trimmed === "-") {
+    return null;
+  }
+
+  const existingFlag = FLAG_REGIONAL_INDICATOR_PATTERN.exec(trimmed);
+
+  if (existingFlag?.[0]) {
+    return existingFlag[0];
+  }
+
+  let countryCode: string | null = null;
+
+  if (/^[A-Za-z]{2}$/.test(trimmed)) {
+    countryCode = trimmed.toUpperCase();
+  }
+
+  if (!countryCode) {
+    const localeLikeValue = trimmed.replace(/_/g, "-");
+
+    try {
+      const parsedLocale = new Intl.Locale(localeLikeValue);
+
+      if (parsedLocale.region && /^[A-Z]{2}$/.test(parsedLocale.region)) {
+        countryCode = parsedLocale.region;
+      }
+    } catch {
+      // Ignore invalid locale-like country values and continue with lookup.
+    }
+  }
+
+  if (!countryCode) {
+    const normalizedKey = normalizeCountryKey(trimmed);
+    countryCode = getCountryNameToCodeMap().get(normalizedKey) ?? null;
+  }
+
+  return countryCode ? toFlagEmoji(countryCode) : null;
+}
+
+export function formatCountryWithFlag(
+  country: string | null | undefined,
+): string {
+  const countryText = findFirstText(country) ?? "-";
+  const flag = countryToFlagEmoji(countryText);
+
+  return flag ? `${flag} ${countryText}` : countryText;
 }
 
 export function rankPoints(value: unknown): number {

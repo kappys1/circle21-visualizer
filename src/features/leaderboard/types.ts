@@ -28,6 +28,7 @@ export interface WodColumnView {
 export interface AthletePanelState {
   athleteId: string;
   name: string;
+  country?: string | null;
   userId?: string | null;
 }
 

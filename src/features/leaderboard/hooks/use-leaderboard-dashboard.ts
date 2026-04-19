@@ -97,6 +97,7 @@ interface LeaderboardDashboardApi extends LeaderboardDashboardState {
   openAthletePanel: (
     athleteId: string,
     name: string,
+    country?: string | null,
     userId?: string | null,
   ) => void;
   closeAthletePanel: () => void;
@@ -723,8 +724,18 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
   }, []);
 
   const openAthletePanel = useCallback(
-    (athleteId: string, name: string, userId?: string | null) => {
-      setSelectedAthlete({ athleteId, name, userId: userId ?? null });
+    (
+      athleteId: string,
+      name: string,
+      country?: string | null,
+      userId?: string | null,
+    ) => {
+      setSelectedAthlete({
+        athleteId,
+        name,
+        country: country ?? null,
+        userId: userId ?? null,
+      });
     },
     [],
   );
