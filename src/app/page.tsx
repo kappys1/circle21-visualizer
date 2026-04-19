@@ -19,12 +19,17 @@ import { useLeaderboardDashboard } from "@/features/leaderboard/hooks/use-leader
 export default function Home() {
   const dashboard = useLeaderboardDashboard();
   const finalCountRaw = dashboard.selectedDivision?.final_count;
-  const finalCount =
-    typeof finalCountRaw === "number"
-      ? finalCountRaw
-      : typeof finalCountRaw === "string" && finalCountRaw.trim().length > 0
-        ? Number(finalCountRaw)
-        : null;
+  let finalCount: number | null = null;
+
+  if (typeof finalCountRaw === "number") {
+    finalCount = finalCountRaw;
+  } else if (
+    typeof finalCountRaw === "string" &&
+    finalCountRaw.trim().length > 0
+  ) {
+    const parsedFinalCount = Number(finalCountRaw);
+    finalCount = Number.isFinite(parsedFinalCount) ? parsedFinalCount : null;
+  }
 
   const onSubmit: React.ComponentProps<"form">["onSubmit"] = (event) => {
     event.preventDefault();
@@ -33,63 +38,59 @@ export default function Home() {
 
   return (
     <div className="relative min-h-dvh overflow-x-hidden">
-      <div className="pointer-events-none fixed -left-24 -top-32 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
-      <div className="pointer-events-none fixed -right-20 bottom-0 h-80 w-80 rounded-full bg-sky-400/10 blur-3xl" />
-
       <main className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 py-4 md:px-6 md:py-6">
         <Card>
-          <CardHeader className="gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardHeader className="gap-3 pb-5">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.18em] text-cyan-300">
                   Circle 21 Visualizer
                 </p>
-                <CardTitle className="font-(--font-syne) text-2xl md:text-3xl">
+                <CardTitle className="font-(--font-syne) text-2xl md:text-3xl pt-3">
                   Clasificación y detalle live
                 </CardTitle>
               </div>
 
               <div className="flex items-center gap-2">
-                <Badge variant="outline">
+                {/* <Badge variant="outline">
                   {dashboard.divisionMode === "team"
                     ? "Modo equipos"
                     : "Modo individual"}
-                </Badge>
+                </Badge> */}
                 {dashboard.bootLoading && (
                   <Badge variant="secondary">Cargando evento</Badge>
                 )}
               </div>
             </div>
-
-            <form
-              onSubmit={onSubmit}
-              className="flex w-full flex-col gap-2 sm:flex-row"
-            >
-              <Input
-                value={dashboard.slugInput}
-                onChange={(event) => dashboard.setSlugInput(event.target.value)}
-                placeholder="wodcelona-online-qualifier-2026"
-                aria-label="Slug del evento"
-                className="sm:max-w-xl"
-              />
-              <Button
-                type="submit"
-                className="sm:w-auto"
-                disabled={dashboard.bootLoading}
-              >
-                Cargar evento
-              </Button>
-            </form>
           </CardHeader>
 
           <CardContent className="grid grid-cols-2 gap-2 md:grid-cols-3">
             <Card className="bg-slate-950/40">
-              <CardHeader className="p-3">
+              <CardHeader className="gap-2 p-3">
                 <CardDescription>Competición</CardDescription>
                 <CardTitle className="text-sm leading-tight">
                   {dashboard.competition?.name ??
                     (dashboard.bootLoading ? "Cargando..." : "-")}
                 </CardTitle>
+
+                <div className="space-y-2 pt-1">
+                  <p className="text-xs text-slate-400">
+                    Evento:{" "}
+                    <span className="font-mono">{dashboard.activeSlug}</span>
+                  </p>
+
+                  {!dashboard.isSlugEditorOpen && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={dashboard.openSlugEditor}
+                      className="h-7 w-fit px-2 text-cyan-200 hover:bg-cyan-500/10 hover:text-cyan-100"
+                    >
+                      ¿Cambiar evento?
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
             </Card>
 
@@ -111,6 +112,41 @@ export default function Home() {
               </CardHeader>
             </Card>
           </CardContent>
+
+          {dashboard.isSlugEditorOpen && (
+            <CardContent className="pt-0">
+              <div className="rounded-lg border border-slate-800/70 bg-slate-950/40 p-3">
+                <form
+                  onSubmit={onSubmit}
+                  className="flex flex-col gap-2 sm:flex-row sm:items-center"
+                >
+                  <Input
+                    value={dashboard.slugInput}
+                    onChange={(event) =>
+                      dashboard.setSlugInput(event.target.value)
+                    }
+                    placeholder="wodcelona-online-qualifier-2026"
+                    aria-label="Slug del evento"
+                    autoFocus
+                    className="sm:max-w-xl"
+                  />
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" disabled={dashboard.bootLoading}>
+                      Cargar evento
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={dashboard.closeSlugEditor}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </CardContent>
+          )}
         </Card>
 
         {dashboard.error && (
@@ -119,39 +155,25 @@ export default function Home() {
           </Card>
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Selector de categoría</CardTitle>
-            <CardDescription>
-              Usa un selector único para cambiar de división sin romper flujo
-              individual/equipos.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CategorySelector
-              divisions={dashboard.divisions}
-              selectedDivisionId={dashboard.selectedDivisionId}
-              onDivisionChange={dashboard.setSelectedDivisionId}
-            />
-          </CardContent>
-        </Card>
-
         <section className="grid gap-4">
           <Card>
-            <CardHeader className="flex flex-row items-start justify-between gap-2">
+            <CardHeader className="flex flex-row items-start justify-between gap-2 pb-6">
               <div>
-                <CardTitle className="text-lg">Clasificación</CardTitle>
-                <CardDescription>
-                  Ordenada por puntos ascendentes (los mejores arriba). En modo
-                  equipos, haz click en una fila para abrir su drawer.
-                </CardDescription>
+                <CardTitle className="text-2xl">Clasificación</CardTitle>
+                <CardDescription></CardDescription>
               </div>
               {dashboard.boardLoading && (
                 <Badge variant="secondary">Actualizando</Badge>
               )}
             </CardHeader>
 
-            <CardContent>
+            <CardContent className="gap-4">
+              <CategorySelector
+                className="mb-6"
+                divisions={dashboard.divisions}
+                selectedDivisionId={dashboard.selectedDivisionId}
+                onDivisionChange={dashboard.setSelectedDivisionId}
+              />
               <LeaderboardTable
                 mode={dashboard.divisionMode}
                 rows={dashboard.leaderboardRows}

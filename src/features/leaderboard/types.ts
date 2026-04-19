@@ -10,10 +10,18 @@ import type {
 
 export type LeaderboardRow = LeaderboardAthleteRow | LeaderboardTeamRow;
 
+export interface TeamWorkoutColumnView {
+  key: string;
+  label: string;
+  lookup: Record<string, LeaderboardTeamRow>;
+}
+
 export interface WodColumnView {
   key: string;
   shortLabel: string;
   fullLabel: string;
+  workoutNames?: string[];
+  teamWorkouts?: TeamWorkoutColumnView[];
   lookup: Record<string, LeaderboardAthleteRow | LeaderboardTeamRow>;
 }
 
@@ -26,6 +34,7 @@ export interface AthletePanelState {
 export interface LeaderboardDashboardState {
   slugInput: string;
   activeSlug: string;
+  isSlugEditorOpen: boolean;
   competition: Competition | null;
   divisions: CompetitionDivision[];
   selectedDivisionId: string;

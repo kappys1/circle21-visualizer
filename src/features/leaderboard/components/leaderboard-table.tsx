@@ -1,5 +1,7 @@
 "use client";
 
+import { type ReactNode, useMemo, useState } from "react";
+
 import type {
   DivisionMode,
   LeaderboardAthleteRow,
@@ -18,7 +20,19 @@ import type {
   LeaderboardRow,
   WodColumnView,
 } from "@/features/leaderboard/types";
-import { formatPoints } from "@/features/leaderboard/utils";
+import { formatPoints, rankPoints } from "@/features/leaderboard/utils";
+
+type SortDirection = "asc" | "desc";
+type SortKey = "rank" | "name" | "points" | `wod:${string}`;
+
+interface SortState {
+  key: SortKey;
+  direction: SortDirection;
+}
+
+function toggleDirection(direction: SortDirection): SortDirection {
+  return direction === "asc" ? "desc" : "asc";
+}
 
 interface LeaderboardTableProps {
   mode: DivisionMode;
@@ -45,6 +59,133 @@ export function LeaderboardTable({
   onSelectTeam,
   onSelectAthlete,
 }: Readonly<LeaderboardTableProps>) {
+  const [sortState, setSortState] = useState<SortState>({
+    key: "rank",
+    direction: "asc",
+  });
+
+  const rankLookup = useMemo(() => {
+    return Object.fromEntries(rows.map((row, index) => [row.id, index + 1]));
+  }, [rows]);
+
+  const resolvedSortKey = useMemo<SortKey>(() => {
+    if (!sortState.key.startsWith("wod:")) {
+      return sortState.key;
+    }
+
+    const wodKey = sortState.key.slice(4);
+    const exists = wodColumns.some((wodColumn) => wodColumn.key === wodKey);
+
+    return exists ? sortState.key : "rank";
+  }, [sortState.key, wodColumns]);
+
+  const sortedRows = useMemo(() => {
+    const directionFactor = sortState.direction === "asc" ? 1 : -1;
+    const nextRows = [...rows];
+
+    const compareByName = (first: LeaderboardRow, second: LeaderboardRow) =>
+      first.name.localeCompare(second.name, "es", { sensitivity: "base" });
+
+    nextRows.sort((first, second) => {
+      if (resolvedSortKey === "name") {
+        return directionFactor * compareByName(first, second);
+      }
+
+      if (resolvedSortKey === "rank") {
+        return (
+          directionFactor *
+          ((rankLookup[first.id] ?? Number.MAX_SAFE_INTEGER) -
+            (rankLookup[second.id] ?? Number.MAX_SAFE_INTEGER))
+        );
+      }
+
+      if (resolvedSortKey === "points") {
+        const firstPoints = rankPoints(first.points);
+        const secondPoints = rankPoints(second.points);
+
+        if (firstPoints === secondPoints) {
+          return compareByName(first, second);
+        }
+
+        return directionFactor * (firstPoints - secondPoints);
+      }
+
+      const wodKey = resolvedSortKey.slice(4);
+      const wodColumn = wodColumns.find((column) => column.key === wodKey);
+      const firstValue = wodColumn?.lookup[first.id]?.points ?? null;
+      const secondValue = wodColumn?.lookup[second.id]?.points ?? null;
+      const firstPoints = rankPoints(firstValue);
+      const secondPoints = rankPoints(secondValue);
+
+      if (firstPoints === secondPoints) {
+        return compareByName(first, second);
+      }
+
+      return directionFactor * (firstPoints - secondPoints);
+    });
+
+    return nextRows;
+  }, [rows, sortState.direction, resolvedSortKey, rankLookup, wodColumns]);
+
+  const cutoffRowId = useMemo(() => {
+    if (
+      typeof finalCount !== "number" ||
+      !Number.isFinite(finalCount) ||
+      finalCount <= 0
+    ) {
+      return null;
+    }
+
+    return rows[finalCount - 1]?.id ?? null;
+  }, [rows, finalCount]);
+
+  const setSort = (key: SortKey) => {
+    setSortState((current) => {
+      if (current.key !== key) {
+        return { key, direction: "asc" };
+      }
+
+      return { key, direction: toggleDirection(current.direction) };
+    });
+  };
+
+  const sortIndicator = (key: SortKey): string => {
+    if (resolvedSortKey !== key) {
+      return "";
+    }
+
+    return sortState.direction === "asc" ? "ASC" : "DESC";
+  };
+
+  const renderSortableHead = ({
+    itemKey,
+    label,
+    sortKey,
+    className,
+    title,
+  }: {
+    itemKey?: string;
+    label: string;
+    sortKey: SortKey;
+    className?: string;
+    title?: string;
+  }): ReactNode => {
+    return (
+      <TableHead key={itemKey} className={className} title={title}>
+        <button
+          type="button"
+          onClick={() => setSort(sortKey)}
+          className="inline-flex items-center gap-2 text-left text-inherit hover:text-slate-200"
+        >
+          <span>{label}</span>
+          <span className="text-[10px] tracking-normal text-slate-500">
+            {sortIndicator(sortKey)}
+          </span>
+        </button>
+      </TableHead>
+    );
+  };
+
   const colSpan = 3 + wodColumns.length;
 
   return (
@@ -52,14 +193,29 @@ export function LeaderboardTable({
       <Table>
         <TableHeader>
           <TableRow className="bg-slate-950/70">
-            <TableHead className="w-14">#</TableHead>
-            <TableHead>{mode === "team" ? "Equipo" : "Atleta"}</TableHead>
-            <TableHead className="w-28">Puntos</TableHead>
-            {wodColumns.map((wod) => (
-              <TableHead key={wod.key} className="w-24" title={wod.fullLabel}>
-                {wod.shortLabel}
-              </TableHead>
-            ))}
+            {renderSortableHead({
+              label: "#",
+              sortKey: "rank",
+              className: "w-14",
+            })}
+            {renderSortableHead({
+              label: mode === "team" ? "Equipo" : "Atleta",
+              sortKey: "name",
+            })}
+            {renderSortableHead({
+              label: "Puntos",
+              sortKey: "points",
+              className: "w-28",
+            })}
+            {wodColumns.map((wod) =>
+              renderSortableHead({
+                itemKey: wod.key,
+                label: wod.shortLabel,
+                sortKey: `wod:${wod.key}`,
+                className: "w-24",
+                title: wod.fullLabel,
+              }),
+            )}
           </TableRow>
         </TableHeader>
 
@@ -87,18 +243,15 @@ export function LeaderboardTable({
           )}
 
           {!loading &&
-            rows.map((row, index) => {
+            sortedRows.map((row) => {
               const userId =
                 "user_id" in row && typeof row.user_id === "string"
                   ? row.user_id
                   : null;
               const isSelectedTeam =
                 mode === "team" && selectedTeamId === row.id;
-              const isCutoffRow =
-                typeof finalCount === "number" &&
-                Number.isFinite(finalCount) &&
-                finalCount > 0 &&
-                index === finalCount - 1;
+              const isCutoffRow = cutoffRowId === row.id;
+              const rank = rankLookup[row.id] ?? "-";
 
               const openRowDetail = () => {
                 if (mode === "team") {
@@ -123,7 +276,7 @@ export function LeaderboardTable({
                   onClick={openRowDetail}
                 >
                   <TableCell className="font-mono text-slate-400">
-                    {index + 1}
+                    {rank}
                   </TableCell>
 
                   <TableCell>

@@ -53,6 +53,38 @@ function asText(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
+function hasMeaningfulValue(value: unknown): boolean {
+  if (value === null || value === undefined) {
+    return false;
+  }
+
+  if (typeof value === "string") {
+    return value.trim().length > 0;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value);
+  }
+
+  return true;
+}
+
+function hasWorkoutUpload(entry: AthleteWorkoutResultView): boolean {
+  if (!entry.result) {
+    return false;
+  }
+
+  return (
+    hasMeaningfulValue(entry.result.id) ||
+    hasMeaningfulValue(entry.result.score) ||
+    hasMeaningfulValue(entry.result.time) ||
+    hasMeaningfulValue(entry.result.tie_break) ||
+    hasMeaningfulValue(entry.result.reps) ||
+    hasMeaningfulValue(entry.result.how_many) ||
+    hasMeaningfulValue(entry.result.video)
+  );
+}
+
 export function TeamDetailCard({
   mode,
   open,
@@ -140,40 +172,70 @@ export function TeamDetailCard({
   const hasSelectedTeam =
     selectedTeamPreview !== null || selectedTeamDetail !== null;
 
-  const workoutRows = wodColumns.map((column) => {
-    const lookup = column.lookup as Record<string, LeaderboardTeamRow>;
-    const sortedRows = Object.values(lookup).toSorted(
-      (first, second) => rankPoints(first.points) - rankPoints(second.points),
-    );
+  const workoutRows = wodColumns.flatMap((column) => {
+    const teamWorkouts =
+      column.teamWorkouts && column.teamWorkouts.length > 0
+        ? column.teamWorkouts
+        : [
+            {
+              key: `${column.key}-aggregate`,
+              label: column.fullLabel,
+              lookup: column.lookup as Record<string, LeaderboardTeamRow>,
+            },
+          ];
 
-    const rank = selectedTeamId
-      ? sortedRows.findIndex((row) => row.id === selectedTeamId) + 1
-      : 0;
+    return teamWorkouts.map((teamWorkout) => {
+      const lookup = teamWorkout.lookup;
+      const selectedWodRow = selectedTeamId
+        ? lookup[selectedTeamId]
+        : undefined;
+      const selectedRowData = selectedWodRow as
+        | Record<string, unknown>
+        | undefined;
 
-    const selectedWodRow = selectedTeamId ? lookup[selectedTeamId] : undefined;
-    const selectedRowData = selectedWodRow as
-      | Record<string, unknown>
-      | undefined;
+      const directRank = parsePoints(
+        (selectedRowData?.position as number | string | null | undefined) ??
+          null,
+      );
 
-    const scoreSource = selectedRowData?.score ?? selectedRowData?.time ?? null;
-    const tieBreakSource =
-      selectedRowData?.tie_break ?? selectedRowData?.tieBreak ?? null;
+      const sortedRows = [...Object.values(lookup)].sort(
+        (first, second) => rankPoints(first.points) - rankPoints(second.points),
+      );
 
-    const scoreAsTime = formatTimeWithMilliseconds(scoreSource);
-    const tieBreakAsTime = formatTimeWithMilliseconds(tieBreakSource);
+      const fallbackRank = selectedTeamId
+        ? sortedRows.findIndex((row) => row.id === selectedTeamId) + 1
+        : 0;
 
-    return {
-      key: column.key,
-      workout: column.fullLabel,
-      rank: rank > 0 ? String(rank) : "-",
-      score:
-        scoreAsTime !== "-" ? scoreAsTime : formatPoints(scoreSource ?? null),
-      tieBreak:
-        tieBreakAsTime !== "-"
-          ? tieBreakAsTime
-          : formatPoints(tieBreakSource ?? null),
-      points: formatPoints(selectedWodRow?.points ?? null),
-    };
+      const scoreSource =
+        selectedRowData?.score ??
+        selectedRowData?.time ??
+        selectedWodRow?.points;
+      const tieBreakSource =
+        selectedRowData?.tie_break ?? selectedRowData?.tieBreak ?? null;
+
+      const scoreAsTime = formatTimeWithMilliseconds(scoreSource);
+      const tieBreakAsTime = formatTimeWithMilliseconds(tieBreakSource);
+
+      const rank =
+        directRank !== null && directRank > 0
+          ? String(Math.trunc(directRank))
+          : fallbackRank > 0
+            ? String(fallbackRank)
+            : "-";
+
+      return {
+        key: teamWorkout.key,
+        workout: teamWorkout.label,
+        rank,
+        score:
+          scoreAsTime !== "-" ? scoreAsTime : formatPoints(scoreSource ?? null),
+        tieBreak:
+          tieBreakAsTime !== "-"
+            ? tieBreakAsTime
+            : formatPoints(tieBreakSource ?? null),
+        points: formatPoints(selectedWodRow?.points ?? null),
+      };
+    });
   });
 
   return (
@@ -296,10 +358,22 @@ export function TeamDetailCard({
                     ? teamAthleteResults[athleteId]
                     : undefined;
                   const athleteResults = athleteResultEntries ?? [];
+                  const uploadedCount =
+                    athleteResults.filter(hasWorkoutUpload).length;
                   const isAthleteLoading =
                     Boolean(athleteId) &&
                     teamAthleteResultsLoading &&
                     !athleteResultEntries;
+                  const totalWorkouts = athleteResults.length;
+                  const progressClassName = isAthleteLoading
+                    ? "border-slate-500/60 bg-slate-500/10 text-slate-300"
+                    : totalWorkouts === 0
+                      ? "border-slate-500/60 bg-slate-500/10 text-slate-300"
+                      : uploadedCount === 0
+                        ? "border-rose-500/60 bg-rose-500/10 text-rose-300"
+                        : uploadedCount === totalWorkouts
+                          ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-300"
+                          : "border-amber-500/60 bg-amber-500/10 text-amber-300";
                   const memberKey = `${member.id ?? member.athlete_id ?? index}`;
 
                   return (
@@ -337,8 +411,11 @@ export function TeamDetailCard({
                             </div>
                           </div>
 
-                          <Badge variant="secondary">
-                            WODs: {athleteResults.length}
+                          <Badge
+                            variant="outline"
+                            className={progressClassName}
+                          >
+                            Subidos: {uploadedCount}/{totalWorkouts}
                           </Badge>
                         </div>
                       </AccordionTrigger>
@@ -386,6 +463,27 @@ export function TeamDetailCard({
                                 );
                                 const video = entry.result?.video;
                                 const workoutKey = `${memberKey}-${entry.workoutId}-${entry.order}`;
+                                const hasUploaded = hasWorkoutUpload(entry);
+                                const pointsLabel = formatPoints(
+                                  entry.result?.points ?? null,
+                                );
+                                const showParentWodName =
+                                  entry.wodName.trim().length > 0 &&
+                                  entry.wodName.trim() !==
+                                    entry.workoutName.trim() &&
+                                  !entry.wodName.includes(",");
+
+                                const statusLabel = entry.error
+                                  ? "Error"
+                                  : hasUploaded
+                                    ? "Subido"
+                                    : "Pendiente";
+
+                                const statusClassName = entry.error
+                                  ? "border-rose-500/60 bg-rose-500/10 text-rose-300"
+                                  : hasUploaded
+                                    ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-300"
+                                    : "border-amber-500/60 bg-amber-500/10 text-amber-300";
 
                                 return (
                                   <AccordionItem
@@ -397,19 +495,30 @@ export function TeamDetailCard({
                                       <div className="flex min-w-0 flex-1 items-start justify-between gap-2 pr-2">
                                         <div className="text-left">
                                           <p className="break-words text-sm font-medium text-slate-100">
-                                            {entry.wodName}
-                                          </p>
-                                          <p className="break-words text-xs text-slate-400">
                                             {entry.workoutName}
                                           </p>
+
+                                          {showParentWodName && (
+                                            <p className="break-words text-xs text-slate-400">
+                                              {entry.wodName}
+                                            </p>
+                                          )}
                                         </div>
 
-                                        <Badge variant="outline">
-                                          {formatPoints(
-                                            entry.result?.points ?? null,
-                                          )}{" "}
-                                          pts
-                                        </Badge>
+                                        <div className="flex items-center gap-2">
+                                          {pointsLabel !== "-" && (
+                                            <Badge variant="outline">
+                                              {pointsLabel} pts
+                                            </Badge>
+                                          )}
+
+                                          <Badge
+                                            variant="outline"
+                                            className={statusClassName}
+                                          >
+                                            {statusLabel}
+                                          </Badge>
+                                        </div>
                                       </div>
                                     </AccordionTrigger>
 

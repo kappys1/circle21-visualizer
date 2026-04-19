@@ -38,9 +38,24 @@ import {
 } from "@/features/leaderboard/utils";
 
 const DEFAULT_SLUG = "wodcelona-online-qualifier-2026";
+const SLUG_QUERY_PARAM = "event";
+
+function getSlugFromQueryParam(): string {
+  if (globalThis.window === undefined) {
+    return DEFAULT_SLUG;
+  }
+
+  const querySlug = new URLSearchParams(globalThis.window.location.search)
+    .get(SLUG_QUERY_PARAM)
+    ?.trim();
+
+  return querySlug && querySlug.length > 0 ? querySlug : DEFAULT_SLUG;
+}
 
 interface LeaderboardDashboardApi extends LeaderboardDashboardState {
   setSlugInput: (value: string) => void;
+  openSlugEditor: () => void;
+  closeSlugEditor: () => void;
   applySlug: () => void;
   setSelectedDivisionId: (value: string) => void;
   selectTeam: (team: LeaderboardTeamRow) => void;
@@ -54,8 +69,9 @@ interface LeaderboardDashboardApi extends LeaderboardDashboardState {
 }
 
 export function useLeaderboardDashboard(): LeaderboardDashboardApi {
-  const [slugInput, setSlugInput] = useState(DEFAULT_SLUG);
-  const [activeSlug, setActiveSlug] = useState(DEFAULT_SLUG);
+  const [slugInput, setSlugInput] = useState<string>(getSlugFromQueryParam);
+  const [activeSlug, setActiveSlug] = useState<string>(getSlugFromQueryParam);
+  const [isSlugEditorOpen, setIsSlugEditorOpen] = useState<boolean>(false);
 
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [wodCatalog, setWodCatalog] = useState<WodCatalogItem[]>([]);
@@ -104,6 +120,25 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
   }, [divisions, selectedDivisionId]);
 
   const divisionMode = parseMode(selectedDivision);
+
+  useEffect(() => {
+    if (globalThis.window === undefined) {
+      return;
+    }
+
+    const currentUrl = new URL(globalThis.window.location.href);
+
+    if (currentUrl.searchParams.get(SLUG_QUERY_PARAM) === activeSlug) {
+      return;
+    }
+
+    currentUrl.searchParams.set(SLUG_QUERY_PARAM, activeSlug);
+    globalThis.window.history.replaceState(
+      globalThis.window.history.state,
+      "",
+      `${currentUrl.pathname}?${currentUrl.searchParams.toString()}${currentUrl.hash}`,
+    );
+  }, [activeSlug]);
 
   useEffect(() => {
     let cancelled = false;
@@ -469,12 +504,97 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
 
   const wodColumns = useMemo<WodColumnView[]>(() => {
     if (divisionMode === "team") {
-      return (teamBoard?.wods ?? []).map((wodNode, index) => ({
-        key: wodNode.wod.id ?? `team-wod-${index}`,
-        shortLabel: shortWodLabel(wodNode.wod.name, index),
-        fullLabel: wodNode.wod.name ?? `WOD ${index + 1}`,
-        lookup: wodNode.teams ?? {},
-      }));
+      return (teamBoard?.wods ?? []).map((wodNode, index) => {
+        const fallbackLabel = wodNode.wod.name ?? `WOD ${index + 1}`;
+        const baseKey = wodNode.wod.id ?? `team-wod-${index}`;
+        const catalogWod = wodCatalog.find((wod) => wod.id === wodNode.wod.id);
+
+        const orderedCatalogWorkouts = [...(catalogWod?.workouts ?? [])].sort(
+          (first, second) =>
+            (first.order ?? Number.MAX_SAFE_INTEGER) -
+            (second.order ?? Number.MAX_SAFE_INTEGER),
+        );
+
+        const catalogWorkoutNames = orderedCatalogWorkouts
+          .map((workout) => workout.name)
+          .filter(
+            (name): name is string =>
+              typeof name === "string" && name.trim().length > 0,
+          );
+
+        const teamWorkouts = (wodNode.workouts ?? [])
+          .map((workoutNode, workoutIndex) => {
+            const workoutId =
+              typeof workoutNode.workout?.id === "string" &&
+              workoutNode.workout.id.trim().length > 0
+                ? workoutNode.workout.id
+                : `${baseKey}-workout-${workoutIndex + 1}`;
+
+            const directLabel =
+              typeof workoutNode.workout?.name === "string" &&
+              workoutNode.workout.name.trim().length > 0
+                ? workoutNode.workout.name
+                : null;
+
+            const catalogLabelById = orderedCatalogWorkouts.find(
+              (workout) => workout.id === workoutNode.workout?.id,
+            )?.name;
+
+            const catalogLabelByIndex =
+              orderedCatalogWorkouts[workoutIndex]?.name;
+
+            const label =
+              directLabel ??
+              catalogLabelById ??
+              catalogLabelByIndex ??
+              `${fallbackLabel} · ${workoutIndex + 1}`;
+
+            const rawTeams = workoutNode.teams;
+            const teamRows = Array.isArray(rawTeams)
+              ? rawTeams
+              : Object.values(rawTeams ?? {});
+
+            const lookup = Object.fromEntries(
+              teamRows
+                .filter((team): team is LeaderboardTeamRow =>
+                  Boolean(
+                    team &&
+                    typeof team.id === "string" &&
+                    team.id.trim().length > 0,
+                  ),
+                )
+                .map((team) => [team.id, team]),
+            );
+
+            return {
+              key: `${baseKey}-${workoutId}`,
+              label,
+              lookup,
+            };
+          })
+          .filter((workout) => Object.keys(workout.lookup).length > 0);
+
+        const payloadWorkoutNames = teamWorkouts
+          .map((workout) => workout.label)
+          .filter(
+            (name): name is string =>
+              typeof name === "string" && name.trim().length > 0,
+          );
+
+        const workoutNames =
+          catalogWorkoutNames.length > 0
+            ? catalogWorkoutNames
+            : payloadWorkoutNames;
+
+        return {
+          key: baseKey,
+          shortLabel: shortWodLabel(wodNode.wod.name, index),
+          fullLabel: fallbackLabel,
+          workoutNames,
+          teamWorkouts,
+          lookup: wodNode.teams ?? {},
+        };
+      });
     }
 
     return (individualBoard?.wods ?? []).map((wodNode, index) => ({
@@ -483,7 +603,7 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
       fullLabel: wodNode.wod.name ?? `WOD ${index + 1}`,
       lookup: wodNode.athletes ?? {},
     }));
-  }, [divisionMode, teamBoard, individualBoard]);
+  }, [divisionMode, teamBoard, individualBoard, wodCatalog]);
 
   const totalEntries = leaderboardRows.length;
   const totalPoints = leaderboardRows.reduce((accumulator, row) => {
@@ -501,12 +621,31 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
   const applySlug = useCallback(() => {
     const nextSlug = slugInput.trim();
 
-    if (nextSlug.length === 0 || nextSlug === activeSlug) {
+    if (nextSlug.length === 0) {
+      setSlugInput(activeSlug);
+      setIsSlugEditorOpen(false);
       return;
     }
 
+    if (nextSlug === activeSlug) {
+      setIsSlugEditorOpen(false);
+      return;
+    }
+
+    setSlugInput(nextSlug);
     setActiveSlug(nextSlug);
+    setIsSlugEditorOpen(false);
   }, [activeSlug, slugInput]);
+
+  const openSlugEditor = useCallback(() => {
+    setSlugInput(activeSlug);
+    setIsSlugEditorOpen(true);
+  }, [activeSlug]);
+
+  const closeSlugEditor = useCallback(() => {
+    setSlugInput(activeSlug);
+    setIsSlugEditorOpen(false);
+  }, [activeSlug]);
 
   const setSelectedDivisionId = useCallback((value: string) => {
     setSelectedDivisionIdState(value);
@@ -546,6 +685,7 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
   return {
     slugInput,
     activeSlug,
+    isSlugEditorOpen,
     competition,
     divisions,
     selectedDivisionId,
@@ -571,6 +711,8 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
     totalEntries,
     totalPoints,
     setSlugInput,
+    openSlugEditor,
+    closeSlugEditor,
     applySlug,
     setSelectedDivisionId,
     selectTeam,

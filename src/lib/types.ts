@@ -25,6 +25,7 @@ export interface LeaderboardEntityBase {
   id: string;
   name: string;
   points: MaybeNumberString;
+  position?: MaybeNumberString;
   country?: string | null;
   club_name?: string | null;
   age?: number | string | null;
@@ -64,8 +65,15 @@ export interface LeaderboardWodIndividual {
 
 export interface LeaderboardWodTeam {
   wod: LeaderboardWodMeta;
-  workouts?: WorkoutCatalogEntry[];
+  workouts?: TeamLeaderboardWorkout[];
   teams: Record<string, LeaderboardTeamRow>;
+}
+
+export interface TeamLeaderboardWorkout {
+  workout?: LeaderboardWodMeta | null;
+  teams?: LeaderboardTeamRow[] | Record<string, LeaderboardTeamRow>;
+  results?: WorkoutResult[];
+  [key: string]: unknown;
 }
 
 export interface IndividualLeaderboardResponse {
