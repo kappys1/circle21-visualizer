@@ -187,27 +187,11 @@ export function LeaderboardTable({
   };
 
   const colSpan = 3 + wodColumns.length;
-  const tableMinWidth = useMemo(() => {
-    const rankColumnWidth = 56;
-    const nameColumnWidth = 176;
-    const pointsColumnWidth = 96;
-    const wodColumnWidth = 72;
-
-    return (
-      rankColumnWidth +
-      nameColumnWidth +
-      pointsColumnWidth +
-      wodColumns.length * wodColumnWidth
-    );
-  }, [wodColumns.length]);
 
   return (
     <div className="w-full min-w-0 overflow-hidden rounded-lg border border-slate-800/80">
       <div className="w-full max-w-full touch-pan-x overflow-x-auto overflow-y-hidden overscroll-x-contain [-webkit-overflow-scrolling:touch]">
-        <Table
-          className="w-max min-w-full text-sm"
-          style={{ minWidth: `${tableMinWidth}px` }}
-        >
+        <Table className="w-full text-sm">
           <TableHeader>
             <TableRow className="bg-slate-950/70">
               {renderSortableHead({
