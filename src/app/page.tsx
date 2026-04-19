@@ -18,6 +18,13 @@ import { useLeaderboardDashboard } from "@/features/leaderboard/hooks/use-leader
 
 export default function Home() {
   const dashboard = useLeaderboardDashboard();
+  const finalCountRaw = dashboard.selectedDivision?.final_count;
+  const finalCount =
+    typeof finalCountRaw === "number"
+      ? finalCountRaw
+      : typeof finalCountRaw === "string" && finalCountRaw.trim().length > 0
+        ? Number(finalCountRaw)
+        : null;
 
   const onSubmit: React.ComponentProps<"form">["onSubmit"] = (event) => {
     event.preventDefault();
@@ -150,6 +157,11 @@ export default function Home() {
                 rows={dashboard.leaderboardRows}
                 wodColumns={dashboard.wodColumns}
                 loading={dashboard.boardLoading}
+                finalCount={
+                  typeof finalCount === "number" && Number.isFinite(finalCount)
+                    ? finalCount
+                    : null
+                }
                 selectedTeamId={dashboard.selectedTeamId}
                 onSelectTeam={dashboard.selectTeam}
                 onSelectAthlete={dashboard.openAthletePanel}

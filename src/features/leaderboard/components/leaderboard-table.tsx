@@ -6,7 +6,6 @@ import type {
   LeaderboardTeamRow,
 } from "@/lib/types";
 
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -26,6 +25,7 @@ interface LeaderboardTableProps {
   rows: LeaderboardRow[];
   wodColumns: WodColumnView[];
   loading: boolean;
+  finalCount: number | null;
   selectedTeamId: string | null;
   onSelectTeam: (team: LeaderboardTeamRow) => void;
   onSelectAthlete: (
@@ -40,6 +40,7 @@ export function LeaderboardTable({
   rows,
   wodColumns,
   loading,
+  finalCount,
   selectedTeamId,
   onSelectTeam,
   onSelectAthlete,
@@ -93,40 +94,42 @@ export function LeaderboardTable({
                   : null;
               const isSelectedTeam =
                 mode === "team" && selectedTeamId === row.id;
+              const isCutoffRow =
+                typeof finalCount === "number" &&
+                Number.isFinite(finalCount) &&
+                finalCount > 0 &&
+                index === finalCount - 1;
+
+              const openRowDetail = () => {
+                if (mode === "team") {
+                  onSelectTeam(row as LeaderboardTeamRow);
+                  return;
+                }
+
+                onSelectAthlete(
+                  (row as LeaderboardAthleteRow).id,
+                  row.name,
+                  userId,
+                );
+              };
 
               return (
                 <TableRow
                   key={row.id}
                   data-state={isSelectedTeam ? "selected" : undefined}
+                  className={`${
+                    isCutoffRow ? "border-b-2 border-b-amber-400/90 " : ""
+                  }group cursor-pointer`}
+                  onClick={openRowDetail}
                 >
                   <TableCell className="font-mono text-slate-400">
                     {index + 1}
                   </TableCell>
 
                   <TableCell>
-                    {mode === "team" ? (
-                      <Button
-                        variant="ghost"
-                        className="h-auto px-0 py-0 font-semibold text-slate-100 hover:text-sky-300"
-                        onClick={() => onSelectTeam(row as LeaderboardTeamRow)}
-                      >
-                        {row.name}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        className="h-auto px-0 py-0 font-semibold text-slate-100 hover:text-sky-300"
-                        onClick={() =>
-                          onSelectAthlete(
-                            (row as LeaderboardAthleteRow).id,
-                            row.name,
-                            userId,
-                          )
-                        }
-                      >
-                        {row.name}
-                      </Button>
-                    )}
+                    <p className="font-semibold text-slate-100 group-hover:text-sky-300">
+                      {row.name}
+                    </p>
 
                     <p className="mt-1 text-xs text-slate-400">
                       {(row.country ?? "-") +

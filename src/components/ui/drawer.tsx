@@ -41,7 +41,7 @@ function DrawerOverlay({
 }
 
 const drawerVariants = cva(
-  "fixed z-50 flex h-auto flex-col gap-4 border border-slate-700 bg-slate-950 p-4 text-slate-100 shadow-2xl duration-300 sm:p-6",
+  "fixed z-50 flex h-auto flex-col gap-4 overflow-x-hidden border border-slate-700 bg-slate-950 p-4 text-slate-100 shadow-2xl duration-300 sm:p-6",
   {
     variants: {
       side: {

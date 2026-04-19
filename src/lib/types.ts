@@ -6,6 +6,7 @@ export interface CompetitionDivision {
   id: string;
   name: string;
   team_size: number;
+  final_count?: number | string | null;
   gender?: string | null;
   category?: string | null;
   parent_division_id?: string | null;
