@@ -185,15 +185,53 @@ export async function fetchTeamDetail(teamId: string): Promise<TeamEntity> {
 }
 
 export async function fetchTeamMembers(teamId: string): Promise<TeamMember[]> {
-  const payload = await requestJson<unknown>(`/teams/${teamId}/member`, {
-    credentials: "include",
-    headers: API_AUTH_TOKEN
-      ? {
+  const endpoint = `/teams/${teamId}/member`;
+  const attempts: Array<() => Promise<TeamMember[]>> = [];
+
+  if (API_AUTH_TOKEN) {
+    attempts.push(async () => {
+      const payload = await requestJson<unknown>(endpoint, {
+        headers: {
           authorization: `Bearer ${API_AUTH_TOKEN}`,
-        }
-      : undefined,
+        },
+      });
+
+      return unwrapList<TeamMember>(payload);
+    });
+  }
+
+  attempts.push(async () => {
+    const payload = await requestJson<unknown>(endpoint);
+    return unwrapList<TeamMember>(payload);
   });
-  return unwrapList<TeamMember>(payload);
+
+  attempts.push(async () => {
+    const payload = await requestJson<unknown>(endpoint, {
+      credentials: "include",
+    });
+
+    return unwrapList<TeamMember>(payload);
+  });
+
+  let lastError: unknown = null;
+
+  for (const attempt of attempts) {
+    try {
+      const members = await attempt();
+
+      if (members.length > 0) {
+        return members;
+      }
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  return [];
 }
 
 export async function fetchWorkoutResults(

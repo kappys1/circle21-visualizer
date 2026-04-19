@@ -15,7 +15,6 @@ import { CategorySelector } from "@/features/leaderboard/components/category-sel
 import { LeaderboardTable } from "@/features/leaderboard/components/leaderboard-table";
 import { TeamDetailCard } from "@/features/leaderboard/components/team-detail-card";
 import { useLeaderboardDashboard } from "@/features/leaderboard/hooks/use-leaderboard-dashboard";
-import { formatPoints } from "@/features/leaderboard/utils";
 
 export default function Home() {
   const dashboard = useLeaderboardDashboard();
@@ -36,15 +35,11 @@ export default function Home() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="text-xs uppercase tracking-[0.18em] text-cyan-300">
-                  Wodcelona Visualizer
+                  Circle 21 Visualizer
                 </p>
                 <CardTitle className="font-(--font-syne) text-2xl md:text-3xl">
                   Clasificación y detalle live
                 </CardTitle>
-                <CardDescription>
-                  Menos puntos significa mejor posición. El ranking se ordena de
-                  menor a mayor.
-                </CardDescription>
               </div>
 
               <div className="flex items-center gap-2">
@@ -80,7 +75,7 @@ export default function Home() {
             </form>
           </CardHeader>
 
-          <CardContent className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          <CardContent className="grid grid-cols-2 gap-2 md:grid-cols-3">
             <Card className="bg-slate-950/40">
               <CardHeader className="p-3">
                 <CardDescription>Competición</CardDescription>
@@ -105,15 +100,6 @@ export default function Home() {
                 <CardDescription>Participantes</CardDescription>
                 <CardTitle className="text-xl">
                   {dashboard.totalEntries}
-                </CardTitle>
-              </CardHeader>
-            </Card>
-
-            <Card className="bg-slate-950/40">
-              <CardHeader className="p-3">
-                <CardDescription>Puntos acumulados</CardDescription>
-                <CardTitle className="text-xl text-sky-300">
-                  {formatPoints(dashboard.totalPoints)}
                 </CardTitle>
               </CardHeader>
             </Card>
@@ -189,12 +175,9 @@ export default function Home() {
         selectedTeamPreview={dashboard.selectedTeamPreview}
         selectedTeamDetail={dashboard.selectedTeamDetail}
         teamMembers={dashboard.teamMembers}
+        teamAthleteResults={dashboard.teamAthleteResults}
+        teamAthleteResultsLoading={dashboard.teamAthleteResultsLoading}
         wodColumns={dashboard.wodColumns}
-        selectedAthlete={dashboard.selectedAthlete}
-        athleteLoading={dashboard.athleteLoading}
-        athleteResults={dashboard.sortedAthleteResults}
-        onSelectAthlete={dashboard.openAthletePanel}
-        onClearAthlete={dashboard.closeAthletePanel}
       />
 
       {dashboard.divisionMode !== "team" && (

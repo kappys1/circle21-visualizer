@@ -38,6 +38,11 @@ export interface LeaderboardDashboardState {
   selectedTeamPreview: LeaderboardTeamRow | null;
   selectedTeamDetail: TeamEntity | null;
   teamMembers: TeamMember[];
+  teamAthleteResults: Record<
+    string,
+    import("@/lib/types").AthleteWorkoutResultView[]
+  >;
+  teamAthleteResultsLoading: boolean;
   selectedAthlete: AthletePanelState | null;
   athleteResults: import("@/lib/types").AthleteWorkoutResultView[];
   sortedAthleteResults: import("@/lib/types").AthleteWorkoutResultView[];

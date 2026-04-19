@@ -74,6 +74,11 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
   const [selectedTeamDetail, setSelectedTeamDetail] =
     useState<TeamEntity | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [teamAthleteResults, setTeamAthleteResults] = useState<
+    Record<string, AthleteWorkoutResultView[]>
+  >({});
+  const [teamAthleteResultsLoading, setTeamAthleteResultsLoading] =
+    useState<boolean>(false);
 
   const [selectedAthlete, setSelectedAthlete] =
     useState<AthletePanelState | null>(null);
@@ -118,6 +123,8 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
       setSelectedTeamPreview(null);
       setSelectedTeamDetail(null);
       setTeamMembers([]);
+      setTeamAthleteResults({});
+      setTeamAthleteResultsLoading(false);
 
       setSelectedAthlete(null);
       setAthleteResults([]);
@@ -170,6 +177,8 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
       setSelectedTeamPreview(null);
       setSelectedTeamDetail(null);
       setTeamMembers([]);
+      setTeamAthleteResults({});
+      setTeamAthleteResultsLoading(false);
       setSelectedAthlete(null);
       setAthleteResults([]);
 
@@ -229,6 +238,8 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
 
     async function loadTeamDetail() {
       setTeamLoading(true);
+      setTeamAthleteResults({});
+      setTeamAthleteResultsLoading(false);
 
       try {
         const [teamDetailResponse, membersResponse] = await Promise.all([
@@ -310,7 +321,7 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
   }, [selectedDivisionId, wodCatalog]);
 
   useEffect(() => {
-    if (!selectedAthlete) {
+    if (!selectedAthlete || divisionMode === "team") {
       return;
     }
 
@@ -367,7 +378,83 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
     return () => {
       cancelled = true;
     };
-  }, [selectedAthlete, workoutsForDivision]);
+  }, [selectedAthlete, workoutsForDivision, divisionMode]);
+
+  useEffect(() => {
+    if (divisionMode !== "team" || !selectedTeamId) {
+      return;
+    }
+
+    const athleteIds = teamMembers
+      .map((member) => member.athlete_id)
+      .filter(
+        (athleteId): athleteId is string =>
+          typeof athleteId === "string" && athleteId.trim().length > 0,
+      );
+
+    if (athleteIds.length === 0 || workoutsForDivision.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadTeamAthleteResults() {
+      setTeamAthleteResultsLoading(true);
+      setTeamAthleteResults({});
+
+      try {
+        const entries = await Promise.all(
+          athleteIds.map(async (athleteId) => {
+            const resultRows = await Promise.all(
+              workoutsForDivision.map(async (workout) => {
+                try {
+                  const response = await fetchWorkoutResults(
+                    workout.workoutId,
+                    athleteId,
+                  );
+
+                  return {
+                    workoutId: workout.workoutId,
+                    workoutName: workout.workoutName,
+                    wodName: workout.wodName,
+                    order: workout.order,
+                    result: response[0] ?? null,
+                  } satisfies AthleteWorkoutResultView;
+                } catch (requestError) {
+                  return {
+                    workoutId: workout.workoutId,
+                    workoutName: workout.workoutName,
+                    wodName: workout.wodName,
+                    order: workout.order,
+                    result: null,
+                    error: parseErrorMessage(requestError),
+                  } satisfies AthleteWorkoutResultView;
+                }
+              }),
+            );
+
+            return [athleteId, resultRows] as const;
+          }),
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        setTeamAthleteResults(Object.fromEntries(entries));
+      } finally {
+        if (!cancelled) {
+          setTeamAthleteResultsLoading(false);
+        }
+      }
+    }
+
+    void loadTeamAthleteResults();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [divisionMode, selectedTeamId, teamMembers, workoutsForDivision]);
 
   const leaderboardRows = useMemo<LeaderboardRow[]>(() => {
     const rows =
@@ -428,6 +515,8 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
   const selectTeam = useCallback((team: LeaderboardTeamRow) => {
     setSelectedTeamId(team.id);
     setSelectedTeamPreview(team);
+    setTeamAthleteResults({});
+    setTeamAthleteResultsLoading(false);
     setSelectedAthlete(null);
     setAthleteResults([]);
   }, []);
@@ -437,6 +526,8 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
     setSelectedTeamPreview(null);
     setSelectedTeamDetail(null);
     setTeamMembers([]);
+    setTeamAthleteResults({});
+    setTeamAthleteResultsLoading(false);
     setSelectedAthlete(null);
     setAthleteResults([]);
   }, []);
@@ -467,6 +558,8 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
     selectedTeamPreview,
     selectedTeamDetail,
     teamMembers,
+    teamAthleteResults,
+    teamAthleteResultsLoading,
     selectedAthlete,
     athleteResults,
     sortedAthleteResults,

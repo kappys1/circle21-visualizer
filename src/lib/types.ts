@@ -126,6 +126,13 @@ export interface TeamMember {
     full_name?: string | null;
     display_name?: string | null;
     avatar_url?: string | null;
+    user?: {
+      name?: string | null;
+      avatar?: string | null;
+      country?: string | null;
+      club_name?: string | null;
+      [key: string]: unknown;
+    } | null;
     [key: string]: unknown;
   } | null;
   [key: string]: unknown;

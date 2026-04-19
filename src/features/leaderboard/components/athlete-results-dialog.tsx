@@ -43,104 +43,116 @@ export function AthleteResultsDialog({
 }: Readonly<AthleteResultsDialogProps>) {
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent side="right" className="overflow-y-auto sm:max-w-[640px]">
+      <DrawerContent side="right" className="overflow-y-auto sm:max-w-[520px]">
         <DrawerHeader>
-          <DrawerTitle>{athlete?.name ?? "Detalle de atleta"}</DrawerTitle>
+          <div className="flex items-center justify-between gap-2 pr-8">
+            <DrawerTitle>{athlete?.name ?? "Detalle de atleta"}</DrawerTitle>
+            <Badge variant="outline">WODs: {results.length}</Badge>
+          </div>
           <DrawerDescription>
             ID atleta: {athlete?.athleteId ?? "-"}
           </DrawerDescription>
         </DrawerHeader>
 
-        {loading && (
-          <p className="text-sm text-slate-400">Cargando resultados...</p>
-        )}
+        <CardContent className="space-y-3 px-0 pb-0">
+          {loading && (
+            <p className="text-sm text-slate-400">Cargando resultados...</p>
+          )}
 
-        {!loading && results.length === 0 && (
-          <p className="text-sm text-slate-400">
-            No se encontraron resultados para este atleta.
-          </p>
-        )}
+          {!loading && results.length === 0 && (
+            <p className="text-sm text-slate-400">
+              No se encontraron resultados para este atleta.
+            </p>
+          )}
 
-        {!loading && results.length > 0 && (
-          <div className="grid gap-3 md:grid-cols-2">
-            {results.map((entry) => {
-              const scoreRaw =
-                entry.result?.score ?? entry.result?.time ?? null;
-              const points = entry.result?.points ?? "-";
-              const tieBreak = entry.result?.tie_break ?? "-";
-              const video = entry.result?.video;
-              const repsRaw =
-                entry.result?.reps ?? entry.result?.how_many ?? null;
-              const reps = parsePoints(repsRaw);
-              const scoreLabel = formatTimeWithMilliseconds(scoreRaw);
-              const tieBreakLabel = formatTimeWithMilliseconds(tieBreak);
+          {!loading && results.length > 0 && (
+            <div className="space-y-3">
+              {results.map((entry) => {
+                const scoreRaw =
+                  entry.result?.score ?? entry.result?.time ?? null;
+                const points = entry.result?.points ?? "-";
+                const tieBreak = entry.result?.tie_break ?? "-";
+                const video = entry.result?.video;
+                const repsRaw =
+                  entry.result?.reps ?? entry.result?.how_many ?? null;
+                const reps = parsePoints(repsRaw);
+                const scoreLabel = formatTimeWithMilliseconds(scoreRaw);
+                const tieBreakLabel = formatTimeWithMilliseconds(tieBreak);
 
-              return (
-                <Card
-                  key={`${entry.workoutId}-${entry.order}`}
-                  className="bg-slate-900/60"
-                >
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <CardTitle className="text-base">
-                          {entry.wodName}
-                        </CardTitle>
-                        <CardDescription>{entry.workoutName}</CardDescription>
+                return (
+                  <Card
+                    key={`${entry.workoutId}-${entry.order}`}
+                    className="border-slate-800 bg-slate-900/55"
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <CardTitle className="text-base leading-tight">
+                            {entry.wodName}
+                          </CardTitle>
+                          <CardDescription>{entry.workoutName}</CardDescription>
+                        </div>
+                        <Badge variant="secondary">
+                          {formatPoints(points)} pts
+                        </Badge>
                       </div>
-                      <Badge variant="secondary">
-                        {formatPoints(points)} pts
-                      </Badge>
-                    </div>
-                  </CardHeader>
+                    </CardHeader>
 
-                  <CardContent className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Score</span>
-                      <span className="font-medium">{scoreLabel}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Tie break</span>
-                      <span className="font-medium">{tieBreakLabel}</span>
-                    </div>
+                    <CardContent className="space-y-2 text-sm">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-md border border-slate-800 bg-slate-950/40 p-2">
+                          <p className="text-xs text-slate-400">Score</p>
+                          <p className="font-medium text-slate-100">
+                            {scoreLabel}
+                          </p>
+                        </div>
 
-                    {reps !== null && (
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">
-                          Reps (si no terminó)
-                        </span>
-                        <span className="font-medium">
-                          {formatPoints(reps)}
-                        </span>
+                        <div className="rounded-md border border-slate-800 bg-slate-950/40 p-2">
+                          <p className="text-xs text-slate-400">Tie break</p>
+                          <p className="font-medium text-slate-100">
+                            {tieBreakLabel}
+                          </p>
+                        </div>
                       </div>
-                    )}
 
-                    {video ? (
-                      <a
-                        href={video}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-sm font-medium text-sky-300 hover:text-sky-200"
-                      >
-                        Abrir vídeo <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    ) : (
-                      <p className="text-xs text-slate-500">
-                        Sin vídeo enviado
-                      </p>
-                    )}
+                      {reps !== null && (
+                        <div className="rounded-md border border-slate-800 bg-slate-950/40 p-2">
+                          <p className="text-xs text-slate-400">
+                            Reps (si no termino)
+                          </p>
+                          <p className="font-medium text-slate-100">
+                            {formatPoints(reps)}
+                          </p>
+                        </div>
+                      )}
 
-                    {entry.error && (
-                      <p className="text-xs text-rose-300">
-                        Error: {entry.error}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+                      {video ? (
+                        <a
+                          href={video}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-sm font-medium text-sky-300 hover:text-sky-200"
+                        >
+                          Abrir video <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      ) : (
+                        <p className="text-xs text-slate-500">
+                          Sin video enviado
+                        </p>
+                      )}
+
+                      {entry.error && (
+                        <p className="text-xs text-rose-300">
+                          Error: {entry.error}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
       </DrawerContent>
     </Drawer>
   );

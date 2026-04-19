@@ -2,10 +2,7 @@
 
 import { ExternalLink } from "lucide-react";
 
-import type {
-  AthletePanelState,
-  WodColumnView,
-} from "@/features/leaderboard/types";
+import type { WodColumnView } from "@/features/leaderboard/types";
 import type {
   AthleteWorkoutResultView,
   DivisionMode,
@@ -14,8 +11,13 @@ import type {
   TeamMember,
 } from "@/lib/types";
 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
 import {
   Drawer,
@@ -42,16 +44,9 @@ interface TeamDetailCardProps {
   selectedTeamPreview: LeaderboardTeamRow | null;
   selectedTeamDetail: TeamEntity | null;
   teamMembers: TeamMember[];
+  teamAthleteResults: Record<string, AthleteWorkoutResultView[]>;
+  teamAthleteResultsLoading: boolean;
   wodColumns: WodColumnView[];
-  selectedAthlete: AthletePanelState | null;
-  athleteLoading: boolean;
-  athleteResults: AthleteWorkoutResultView[];
-  onSelectAthlete: (
-    athleteId: string,
-    name: string,
-    userId?: string | null,
-  ) => void;
-  onClearAthlete: () => void;
 }
 
 function asText(value: unknown): string | null {
@@ -68,12 +63,9 @@ export function TeamDetailCard({
   selectedTeamPreview,
   selectedTeamDetail,
   teamMembers,
+  teamAthleteResults,
+  teamAthleteResultsLoading,
   wodColumns,
-  selectedAthlete,
-  athleteLoading,
-  athleteResults,
-  onSelectAthlete,
-  onClearAthlete,
 }: Readonly<TeamDetailCardProps>) {
   if (mode !== "team") {
     return null;
@@ -103,6 +95,7 @@ export function TeamDetailCard({
 
   const resolveMemberName = (member: TeamMember, index: number): string => {
     const nestedAthlete = member.athlete;
+    const nestedUser = nestedAthlete?.user;
 
     const athleteName = findFirstText(
       member.name,
@@ -113,6 +106,7 @@ export function TeamDetailCard({
       asText(nestedAthlete?.athlete_name),
       asText(nestedAthlete?.full_name),
       asText(nestedAthlete?.display_name),
+      asText(nestedUser?.name),
     );
 
     if (athleteName) {
@@ -130,6 +124,16 @@ export function TeamDetailCard({
     return findFirstText(
       asText(member.avatar_url),
       asText(member.athlete?.avatar_url),
+      asText(member.athlete?.user?.avatar),
+    );
+  };
+
+  const resolveMemberCountry = (member: TeamMember): string => {
+    return (
+      findFirstText(
+        asText(member.country),
+        asText(member.athlete?.user?.country),
+      ) ?? "-"
     );
   };
 
@@ -181,7 +185,7 @@ export function TeamDetailCard({
             <Badge variant="outline">Equipos: {teamsCount}</Badge>
           </div>
           <DrawerDescription>
-            Team overview con resultados por workout y detalle por atleta.
+            Integrantes, resultados y videos del equipo en un solo panel.
           </DrawerDescription>
         </DrawerHeader>
 
@@ -226,7 +230,7 @@ export function TeamDetailCard({
 
           {!loading && hasSelectedTeam && teamMembers.length === 0 && (
             <p className="text-sm text-slate-400">
-              Este equipo no tiene miembros visibles en la API.
+              No se pudieron cargar integrantes del equipo para este registro.
             </p>
           )}
 
@@ -277,191 +281,213 @@ export function TeamDetailCard({
                   Team Members and Scores
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Selecciona un atleta para ver score, tie break, reps y videos.
+                  Cada integrante muestra sus workouts con score, tie break,
+                  reps y video.
                 </p>
               </div>
 
-              {teamMembers.map((member, index) => {
-                const athleteId = member.athlete_id;
-                const memberName = resolveMemberName(member, index);
-                const memberAvatar = resolveMemberAvatar(member);
-                const isSelectedAthlete =
-                  Boolean(athleteId) &&
-                  selectedAthlete?.athleteId === athleteId;
+              <Accordion type="multiple" className="space-y-2">
+                {teamMembers.map((member, index) => {
+                  const athleteId = findFirstText(asText(member.athlete_id));
+                  const memberName = resolveMemberName(member, index);
+                  const memberAvatar = resolveMemberAvatar(member);
+                  const memberCountry = resolveMemberCountry(member);
+                  const athleteResultEntries = athleteId
+                    ? teamAthleteResults[athleteId]
+                    : undefined;
+                  const athleteResults = athleteResultEntries ?? [];
+                  const isAthleteLoading =
+                    Boolean(athleteId) &&
+                    teamAthleteResultsLoading &&
+                    !athleteResultEntries;
+                  const memberKey = `${member.id ?? member.athlete_id ?? index}`;
 
-                return (
-                  <div
-                    key={`${member.id ?? member.athlete_id ?? index}`}
-                    className="flex items-center justify-between gap-3 rounded-md border border-slate-800 bg-slate-950/40 p-2"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="h-12 w-12 overflow-hidden rounded-full border border-slate-700 bg-slate-800">
-                        {memberAvatar ? (
-                          <div
-                            className="h-full w-full bg-cover bg-center"
-                            style={{ backgroundImage: `url(${memberAvatar})` }}
-                            aria-label={memberName}
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">
-                            IMG
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-100">
-                          {memberName}
-                        </p>
-                        <p className="truncate text-xs text-slate-400">
-                          {member.country ?? "-"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <Button
-                      size="sm"
-                      variant={isSelectedAthlete ? "outline" : "secondary"}
-                      disabled={!athleteId}
-                      onClick={() => {
-                        if (!athleteId) {
-                          return;
-                        }
-
-                        onSelectAthlete(athleteId, memberName, member.user_id);
-                      }}
+                  return (
+                    <AccordionItem
+                      key={memberKey}
+                      value={`member-${memberKey}`}
+                      className="overflow-hidden rounded-md border border-slate-800 bg-slate-950/40"
                     >
-                      {isSelectedAthlete ? "Actualizando" : "Ver resultados"}
-                    </Button>
-                  </div>
-                );
-              })}
+                      <AccordionTrigger className="px-3 py-3 hover:no-underline">
+                        <div className="flex min-w-0 w-full items-center justify-between gap-3">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-slate-700 bg-slate-800">
+                              {memberAvatar ? (
+                                <div
+                                  className="h-full w-full bg-cover bg-center"
+                                  style={{
+                                    backgroundImage: `url(${memberAvatar})`,
+                                  }}
+                                  aria-label={memberName}
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">
+                                  IMG
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="min-w-0 text-left">
+                              <p className="truncate text-sm font-medium text-slate-100">
+                                {memberName}
+                              </p>
+                              <p className="truncate text-xs text-slate-400">
+                                {memberCountry}
+                              </p>
+                            </div>
+                          </div>
+
+                          <Badge variant="secondary">
+                            WODs: {athleteResults.length}
+                          </Badge>
+                        </div>
+                      </AccordionTrigger>
+
+                      <AccordionContent className="px-3 pb-3">
+                        {!athleteId && (
+                          <p className="text-xs text-slate-500">
+                            Miembro sin athlete_id disponible.
+                          </p>
+                        )}
+
+                        {athleteId && isAthleteLoading && (
+                          <p className="text-xs text-slate-400">
+                            Cargando workouts del integrante...
+                          </p>
+                        )}
+
+                        {athleteId &&
+                          !isAthleteLoading &&
+                          athleteResults.length === 0 && (
+                            <p className="text-xs text-slate-500">
+                              No hay resultados publicados para este integrante.
+                            </p>
+                          )}
+
+                        {athleteId &&
+                          !isAthleteLoading &&
+                          athleteResults.length > 0 && (
+                            <Accordion type="multiple" className="space-y-2">
+                              {athleteResults.map((entry) => {
+                                const scoreSource =
+                                  entry.result?.score ??
+                                  entry.result?.time ??
+                                  null;
+                                const tieBreakSource =
+                                  entry.result?.tie_break ?? null;
+                                const scoreAsTime =
+                                  formatTimeWithMilliseconds(scoreSource);
+                                const tieBreakAsTime =
+                                  formatTimeWithMilliseconds(tieBreakSource);
+                                const reps = parsePoints(
+                                  entry.result?.reps ??
+                                    entry.result?.how_many ??
+                                    null,
+                                );
+                                const video = entry.result?.video;
+                                const workoutKey = `${memberKey}-${entry.workoutId}-${entry.order}`;
+
+                                return (
+                                  <AccordionItem
+                                    key={workoutKey}
+                                    value={`workout-${workoutKey}`}
+                                    className="overflow-hidden rounded-md border border-slate-800/90 bg-slate-950/60"
+                                  >
+                                    <AccordionTrigger className="px-3 py-2 hover:no-underline">
+                                      <div className="flex w-full items-start justify-between gap-2 pr-2">
+                                        <div className="text-left">
+                                          <p className="text-sm font-medium text-slate-100">
+                                            {entry.wodName}
+                                          </p>
+                                          <p className="text-xs text-slate-400">
+                                            {entry.workoutName}
+                                          </p>
+                                        </div>
+
+                                        <Badge variant="outline">
+                                          {formatPoints(
+                                            entry.result?.points ?? null,
+                                          )}{" "}
+                                          pts
+                                        </Badge>
+                                      </div>
+                                    </AccordionTrigger>
+
+                                    <AccordionContent className="px-3 pb-3">
+                                      <div className="grid grid-cols-2 gap-2 text-sm">
+                                        <div>
+                                          <p className="text-xs uppercase tracking-wide text-slate-400">
+                                            Score
+                                          </p>
+                                          <p className="font-medium text-slate-100">
+                                            {scoreAsTime !== "-"
+                                              ? scoreAsTime
+                                              : formatPoints(scoreSource)}
+                                          </p>
+                                        </div>
+
+                                        <div>
+                                          <p className="text-xs uppercase tracking-wide text-slate-400">
+                                            Tie break
+                                          </p>
+                                          <p className="font-medium text-slate-100">
+                                            {tieBreakAsTime !== "-"
+                                              ? tieBreakAsTime
+                                              : formatPoints(tieBreakSource)}
+                                          </p>
+                                        </div>
+
+                                        <div>
+                                          <p className="text-xs uppercase tracking-wide text-slate-400">
+                                            Reps (si no termino)
+                                          </p>
+                                          <p className="font-medium text-slate-100">
+                                            {reps !== null
+                                              ? formatPoints(reps)
+                                              : "-"}
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      {video ? (
+                                        <a
+                                          href={video}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-sky-300 hover:text-sky-200"
+                                        >
+                                          Abrir video{" "}
+                                          <ExternalLink className="h-3.5 w-3.5" />
+                                        </a>
+                                      ) : (
+                                        <p className="mt-2 text-xs text-slate-500">
+                                          Sin video enviado
+                                        </p>
+                                      )}
+
+                                      {entry.error && (
+                                        <p className="mt-2 text-xs text-rose-300">
+                                          Error: {entry.error}
+                                        </p>
+                                      )}
+                                    </AccordionContent>
+                                  </AccordionItem>
+                                );
+                              })}
+                            </Accordion>
+                          )}
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
+              </Accordion>
             </div>
           )}
 
-          {!loading && selectedAthlete && (
-            <div className="space-y-2 rounded-md border border-slate-800 bg-slate-900/40 p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-base font-semibold text-slate-100">
-                    {selectedAthlete.name}
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    ID atleta: {selectedAthlete.athleteId}
-                  </p>
-                </div>
-
-                <Button size="sm" variant="ghost" onClick={onClearAthlete}>
-                  Cerrar
-                </Button>
-              </div>
-
-              {athleteLoading && (
-                <p className="text-sm text-slate-400">Cargando resultados...</p>
-              )}
-
-              {!athleteLoading && athleteResults.length === 0 && (
-                <p className="text-sm text-slate-400">
-                  No hay resultados disponibles para este atleta.
-                </p>
-              )}
-
-              {!athleteLoading && athleteResults.length > 0 && (
-                <div className="space-y-2">
-                  {athleteResults.map((entry) => {
-                    const scoreSource =
-                      entry.result?.score ?? entry.result?.time ?? null;
-                    const tieBreakSource = entry.result?.tie_break ?? null;
-                    const scoreAsTime = formatTimeWithMilliseconds(scoreSource);
-                    const tieBreakAsTime =
-                      formatTimeWithMilliseconds(tieBreakSource);
-                    const reps = parsePoints(
-                      entry.result?.reps ?? entry.result?.how_many ?? null,
-                    );
-                    const video = entry.result?.video;
-
-                    return (
-                      <div
-                        key={`${entry.workoutId}-${entry.order}`}
-                        className="space-y-2 rounded-md border border-slate-800 bg-slate-950/50 p-3"
-                      >
-                        <div>
-                          <p className="text-sm font-medium text-slate-100">
-                            {entry.wodName}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            {entry.workoutName}
-                          </p>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <p className="text-xs uppercase tracking-wide text-slate-400">
-                              Score
-                            </p>
-                            <p className="font-medium text-slate-100">
-                              {scoreAsTime !== "-"
-                                ? scoreAsTime
-                                : formatPoints(scoreSource)}
-                            </p>
-                          </div>
-
-                          <div>
-                            <p className="text-xs uppercase tracking-wide text-slate-400">
-                              Tie break
-                            </p>
-                            <p className="font-medium text-slate-100">
-                              {tieBreakAsTime !== "-"
-                                ? tieBreakAsTime
-                                : formatPoints(tieBreakSource)}
-                            </p>
-                          </div>
-
-                          <div>
-                            <p className="text-xs uppercase tracking-wide text-slate-400">
-                              Puntos
-                            </p>
-                            <p className="font-medium text-sky-300">
-                              {formatPoints(entry.result?.points ?? null)}
-                            </p>
-                          </div>
-
-                          <div>
-                            <p className="text-xs uppercase tracking-wide text-slate-400">
-                              Reps (si no termino)
-                            </p>
-                            <p className="font-medium text-slate-100">
-                              {reps !== null ? formatPoints(reps) : "-"}
-                            </p>
-                          </div>
-                        </div>
-
-                        {video ? (
-                          <a
-                            href={video}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-sm font-medium text-sky-300 hover:text-sky-200"
-                          >
-                            Abrir video <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        ) : (
-                          <p className="text-xs text-slate-500">
-                            Sin video enviado
-                          </p>
-                        )}
-
-                        {entry.error && (
-                          <p className="text-xs text-rose-300">
-                            Error: {entry.error}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+          {teamAthleteResultsLoading && teamMembers.length > 0 && (
+            <p className="text-xs text-slate-400">
+              Sincronizando resultados y videos de los integrantes...
+            </p>
           )}
         </CardContent>
       </DrawerContent>
