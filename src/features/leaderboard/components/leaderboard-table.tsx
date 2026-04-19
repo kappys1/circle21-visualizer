@@ -190,7 +190,7 @@ export function LeaderboardTable({
 
   return (
     <div className="w-full min-w-0 overflow-hidden rounded-lg border border-slate-800/80">
-      <div className="w-full max-w-full touch-pan-x overflow-x-auto overflow-y-hidden overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+      <div className="w-full max-w-full touch-auto overflow-x-auto overflow-y-hidden overscroll-x-contain [-webkit-overflow-scrolling:touch]">
         <Table className="w-full text-sm">
           <TableHeader>
             <TableRow className="bg-slate-950/70">
