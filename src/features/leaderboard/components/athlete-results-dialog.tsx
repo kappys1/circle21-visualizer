@@ -92,9 +92,11 @@ export function AthleteResultsDialog({
                           </CardTitle>
                           <CardDescription>{entry.workoutName}</CardDescription>
                         </div>
-                        <Badge variant="secondary">
-                          {formatPoints(points)} pts
-                        </Badge>
+                        {points !== "-" && (
+                          <Badge variant="secondary">
+                            {formatPoints(points)} pts
+                          </Badge>
+                        )}
                       </div>
                     </CardHeader>
 
