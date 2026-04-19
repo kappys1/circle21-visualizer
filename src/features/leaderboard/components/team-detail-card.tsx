@@ -1,6 +1,8 @@
 "use client";
 
 import { ExternalLink } from "lucide-react";
+import Image from "next/image";
+import { useState } from "react";
 
 import type { WodColumnView } from "@/features/leaderboard/types";
 import type {
@@ -19,6 +21,7 @@ import {
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   Drawer,
   DrawerContent,
@@ -99,6 +102,8 @@ export function TeamDetailCard({
   teamAthleteResultsLoading,
   wodColumns,
 }: Readonly<TeamDetailCardProps>) {
+  const [isCoverExpanded, setIsCoverExpanded] = useState(false);
+
   if (mode !== "team") {
     return null;
   }
@@ -253,13 +258,22 @@ export function TeamDetailCard({
 
         <CardContent className="space-y-4 px-0 pb-0">
           {teamCover && (
-            <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-900/40">
+            <button
+              type="button"
+              className="w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-900/40 text-left transition hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+              onClick={() => setIsCoverExpanded(true)}
+              aria-label={`Ampliar cover de ${teamName}`}
+            >
               <div
                 className="h-44 w-full bg-cover bg-center"
                 style={{ backgroundImage: `url(${teamCover})` }}
                 aria-label={`Cover de ${teamName}`}
               />
-            </div>
+
+              <p className="px-3 py-2 text-xs text-slate-400">
+                Click en la imagen para verla en grande
+              </p>
+            </button>
           )}
 
           <div className="grid grid-cols-2 gap-2 text-sm">
@@ -600,6 +614,25 @@ export function TeamDetailCard({
           )}
         </CardContent>
       </DrawerContent>
+
+      {teamCover && (
+        <Dialog open={isCoverExpanded} onOpenChange={setIsCoverExpanded}>
+          <DialogContent className="w-[min(96vw,1200px)] max-w-none border-slate-700 bg-slate-950/95 p-3 sm:p-4">
+            <DialogTitle className="sr-only">
+              Imagen ampliada de {teamName}
+            </DialogTitle>
+
+            <Image
+              src={teamCover}
+              alt={`Cover de ${teamName}`}
+              width={1600}
+              height={900}
+              unoptimized
+              className="max-h-[88dvh] w-full rounded-lg border border-slate-700 object-contain shadow-2xl"
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </Drawer>
   );
 }

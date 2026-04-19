@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 interface CategorySelectorProps {
   divisions: CompetitionDivision[];
   selectedDivisionId: string;
-  className: string;
+  className?: string;
   onDivisionChange: (value: string) => void;
 }
 

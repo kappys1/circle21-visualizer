@@ -64,8 +64,8 @@ export default function Home() {
             </div>
           </CardHeader>
 
-          <CardContent className="grid grid-cols-2 gap-2 md:grid-cols-3">
-            <Card className="bg-slate-950/40">
+          <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
+            <Card className="bg-slate-950/85">
               <CardHeader className="gap-2 p-3">
                 <CardDescription>Competición</CardDescription>
                 <CardTitle className="text-sm leading-tight">
@@ -94,7 +94,7 @@ export default function Home() {
               </CardHeader>
             </Card>
 
-            <Card className="bg-slate-950/40">
+            <Card className="bg-slate-950/85">
               <CardHeader className="p-3">
                 <CardDescription>Categoría</CardDescription>
                 <CardTitle className="text-sm leading-tight">
@@ -103,7 +103,7 @@ export default function Home() {
               </CardHeader>
             </Card>
 
-            <Card className="bg-slate-950/40">
+            <Card className="bg-slate-950/85 sm:col-span-2 md:col-span-1">
               <CardHeader className="p-3">
                 <CardDescription>Participantes</CardDescription>
                 <CardTitle className="text-xl">
@@ -115,7 +115,7 @@ export default function Home() {
 
           {dashboard.isSlugEditorOpen && (
             <CardContent className="pt-0">
-              <div className="rounded-lg border border-slate-800/70 bg-slate-950/40 p-3">
+              <div className="rounded-lg border border-slate-800/70 bg-slate-950/85 p-3">
                 <form
                   onSubmit={onSubmit}
                   className="flex flex-col gap-2 sm:flex-row sm:items-center"
