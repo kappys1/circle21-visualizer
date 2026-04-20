@@ -40,50 +40,116 @@ import {
 const DEFAULT_SLUG = "wodcelona-online-qualifier-2026";
 const SLUG_QUERY_PARAM = "event";
 const CATEGORY_QUERY_PARAM = "category";
+const SLUG_QUERY_PARAM_ALIASES = [SLUG_QUERY_PARAM, "slug", "competition"];
+const CATEGORY_QUERY_PARAM_ALIASES = [
+  CATEGORY_QUERY_PARAM,
+  "division",
+  "division_id",
+  "divisionId",
+];
 
-function getQueryParamValue(paramName: string): string | null {
+function getQueryParamValue(paramNames: string | string[]): string | null {
   if (globalThis.window === undefined) {
     return null;
   }
 
-  const queryValue = new URLSearchParams(globalThis.window.location.search)
-    .get(paramName)
-    ?.trim();
+  const names = Array.isArray(paramNames) ? paramNames : [paramNames];
+  const searchParams = new URLSearchParams(globalThis.window.location.search);
 
-  return queryValue && queryValue.length > 0 ? queryValue : null;
+  for (const paramName of names) {
+    const directValue = searchParams.get(paramName)?.trim();
+
+    if (directValue && directValue.length > 0) {
+      return directValue;
+    }
+  }
+
+  const normalizedNames = new Set(names.map((name) => name.toLowerCase()));
+
+  for (const [paramName, rawValue] of searchParams.entries()) {
+    if (!normalizedNames.has(paramName.toLowerCase())) {
+      continue;
+    }
+
+    const value = rawValue.trim();
+
+    if (value.length > 0) {
+      return value;
+    }
+  }
+
+  return null;
 }
 
 function getSlugFromQueryParam(): string {
-  const querySlug = getQueryParamValue(SLUG_QUERY_PARAM);
+  const querySlug = getQueryParamValue(SLUG_QUERY_PARAM_ALIASES);
 
   return querySlug && querySlug.length > 0 ? querySlug : DEFAULT_SLUG;
 }
 
 function getCategoryFromQueryParam(): string | null {
-  return getQueryParamValue(CATEGORY_QUERY_PARAM);
+  return getQueryParamValue(CATEGORY_QUERY_PARAM_ALIASES);
 }
 
-function resolveInitialDivisionId(divisions: CompetitionDivision[]): string {
-  const fallbackDivisionId = divisions[0]?.id ?? "";
-  const queryCategory = getCategoryFromQueryParam();
+function normalizeCategoryToken(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replaceAll(/[\u0300-\u036f]/g, "")
+    .replaceAll(/[^a-z0-9]+/g, "-")
+    .replaceAll(/^-+/g, "")
+    .replaceAll(/-+$/g, "");
+}
 
+function resolveDivisionIdFromQueryCategory(
+  divisions: CompetitionDivision[],
+  queryCategory: string | null,
+): string | null {
   if (!queryCategory) {
-    return fallbackDivisionId;
+    return null;
   }
 
-  const normalizedCategory = queryCategory.toLowerCase();
+  const rawQuery = queryCategory.trim().toLowerCase();
+  const normalizedQuery = normalizeCategoryToken(queryCategory);
+
+  if (rawQuery.length === 0 && normalizedQuery.length === 0) {
+    return null;
+  }
 
   const matchedDivision = divisions.find((division) => {
     const candidateValues = [division.id, division.name, division.category];
 
-    return candidateValues.some(
-      (value) =>
-        typeof value === "string" &&
-        value.trim().toLowerCase() === normalizedCategory,
-    );
+    return candidateValues.some((value) => {
+      if (typeof value !== "string") {
+        return false;
+      }
+
+      const rawCandidate = value.trim().toLowerCase();
+
+      if (rawCandidate.length === 0) {
+        return false;
+      }
+
+      if (rawCandidate === rawQuery) {
+        return true;
+      }
+
+      return normalizeCategoryToken(value) === normalizedQuery;
+    });
   });
 
-  return matchedDivision?.id ?? fallbackDivisionId;
+  return matchedDivision?.id ?? null;
+}
+
+function resolveInitialDivisionId(divisions: CompetitionDivision[]): string {
+  const fallbackDivisionId = divisions[0]?.id ?? "";
+  const divisionIdFromQuery = resolveDivisionIdFromQueryCategory(
+    divisions,
+    getCategoryFromQueryParam(),
+  );
+
+  return divisionIdFromQuery ?? fallbackDivisionId;
 }
 
 interface LeaderboardDashboardApi extends LeaderboardDashboardState {
@@ -163,11 +229,11 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
 
     const currentUrl = new URL(globalThis.window.location.href);
     const nextCategory = selectedDivisionId.trim();
+    const shouldSyncCategory = nextCategory.length > 0;
 
-    const isCategoryAlreadySynced =
-      nextCategory.length > 0
-        ? currentUrl.searchParams.get(CATEGORY_QUERY_PARAM) === nextCategory
-        : !currentUrl.searchParams.has(CATEGORY_QUERY_PARAM);
+    const isCategoryAlreadySynced = shouldSyncCategory
+      ? currentUrl.searchParams.get(CATEGORY_QUERY_PARAM) === nextCategory
+      : true;
 
     if (
       currentUrl.searchParams.get(SLUG_QUERY_PARAM) === activeSlug &&
@@ -178,10 +244,8 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
 
     currentUrl.searchParams.set(SLUG_QUERY_PARAM, activeSlug);
 
-    if (nextCategory.length > 0) {
+    if (shouldSyncCategory) {
       currentUrl.searchParams.set(CATEGORY_QUERY_PARAM, nextCategory);
-    } else {
-      currentUrl.searchParams.delete(CATEGORY_QUERY_PARAM);
     }
 
     globalThis.window.history.replaceState(
