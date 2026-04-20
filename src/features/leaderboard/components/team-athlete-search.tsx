@@ -59,7 +59,7 @@ export function TeamAthleteSearch({
         : {
             title: "Buscar equipo o atleta",
             subtitle: "La tabla se filtra por nombre de equipo o de atleta.",
-            placeholder: "Ejemplo: Aniol Ekai, Calum Clements",
+            placeholder: "Ejemplo: Aniol Ekai, Calum Clements...",
             inputAriaLabel: "Buscar equipo o atleta",
             loadingAthletes: "Indexando atletas...",
             availableForTeamsOnly:

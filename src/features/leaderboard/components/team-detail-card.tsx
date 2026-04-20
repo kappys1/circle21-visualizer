@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink } from "lucide-react";
+import { Check, ExternalLink, Sparkles } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
 
@@ -37,6 +37,7 @@ import {
   parsePoints,
   rankPoints,
 } from "@/features/leaderboard/utils";
+import { cn } from "@/lib/utils";
 
 type DashboardLanguage = "es" | "en";
 
@@ -47,9 +48,12 @@ interface TeamDetailCardProps {
   onOpenChange: (open: boolean) => void;
   loading: boolean;
   teamsCount: number;
+  selectedTeamGlobalRank: number | null;
   selectedTeamId: string | null;
   selectedTeamPreview: LeaderboardTeamRow | null;
   selectedTeamDetail: TeamEntity | null;
+  isSelectedTeamFollowed: boolean;
+  onFollowSelectedTeamChange: (followed: boolean) => void;
   teamMembers: TeamMember[];
   teamAthleteResults: Record<string, AthleteWorkoutResultView[]>;
   teamAthleteResultsLoading: boolean;
@@ -99,9 +103,12 @@ export function TeamDetailCard({
   onOpenChange,
   loading,
   teamsCount,
+  selectedTeamGlobalRank,
   selectedTeamId,
   selectedTeamPreview,
   selectedTeamDetail,
+  isSelectedTeamFollowed,
+  onFollowSelectedTeamChange,
   teamMembers,
   teamAthleteResults,
   teamAthleteResultsLoading,
@@ -125,8 +132,12 @@ export function TeamDetailCard({
           clickToExpandImage: "Click the image to view it larger",
           country: "Country",
           club: "Club",
+          globalRank: "Global rank",
           loadingTeamDetail: "Loading team detail...",
           selectTeamHint: "Select a team from the table to open this drawer.",
+          followTeam: "Follow this team",
+          followTeamHint:
+            "Highlight this team row and keep it synced in your browser.",
           membersLoadFailed: "Could not load team members for this entry.",
           resultsPerWorkout: "Results per workout",
           resultsPerWorkoutHint: "Team rank and points for each WOD.",
@@ -163,9 +174,12 @@ export function TeamDetailCard({
           clickToExpandImage: "Click en la imagen para verla en grande",
           country: "Pais",
           club: "Club",
+          globalRank: "Posicion global",
           loadingTeamDetail: "Cargando detalle de equipo...",
           selectTeamHint:
             "Selecciona un equipo en la tabla para abrir este drawer.",
+          followTeam: "Seguir este equipo",
+          followTeamHint: "Resalta esta fila y lo guarda en tu navegador.",
           membersLoadFailed:
             "No se pudieron cargar integrantes del equipo para este registro.",
           resultsPerWorkout: "Resultados por workout",
@@ -206,6 +220,10 @@ export function TeamDetailCard({
       selectedTeamDetail?.club_name,
       selectedTeamPreview?.club_name,
     ) ?? "-";
+  const teamGlobalRankLabel =
+    typeof selectedTeamGlobalRank === "number" && selectedTeamGlobalRank > 0
+      ? `#${Math.trunc(selectedTeamGlobalRank)}`
+      : "-";
 
   const teamCover =
     findFirstText(
@@ -345,6 +363,60 @@ export function TeamDetailCard({
             </Badge>
           </div>
           <DrawerDescription>{copy.drawerDescription}</DrawerDescription>
+
+          {selectedTeamId && (
+            <div className="relative overflow-hidden rounded-xl border border-emerald-400/30 bg-linear-to-r from-emerald-500/18 via-cyan-500/12 to-slate-950">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -right-8 top-1/2 h-20 w-24 -translate-y-1/2 rounded-full bg-emerald-300/20 blur-2xl"
+              />
+
+              <label className="relative flex cursor-pointer items-center justify-between gap-3 px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={isSelectedTeamFollowed}
+                  onChange={(event) =>
+                    onFollowSelectedTeamChange(event.target.checked)
+                  }
+                  className="peer sr-only"
+                  aria-label={copy.followTeam}
+                />
+
+                <span className="space-y-0.5">
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-emerald-100">
+                    {isSelectedTeamFollowed ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" />
+                    )}
+                    {copy.followTeam}
+                  </span>
+
+                  <span className="block text-[11px] text-slate-200">
+                    {copy.followTeamHint}
+                  </span>
+                </span>
+
+                <span
+                  className={cn(
+                    "inline-flex h-7 w-12 items-center rounded-full border p-1 transition-colors",
+                    isSelectedTeamFollowed
+                      ? "border-emerald-300/60 bg-emerald-400/30"
+                      : "border-slate-600/80 bg-slate-900/70",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "h-5 w-5 rounded-full shadow transition-transform duration-200",
+                      isSelectedTeamFollowed
+                        ? "translate-x-5 bg-emerald-100"
+                        : "translate-x-0 bg-slate-300",
+                    )}
+                  />
+                </span>
+              </label>
+            </div>
+          )}
         </DrawerHeader>
 
         <CardContent className="space-y-4 px-0 pb-0">
@@ -368,6 +440,14 @@ export function TeamDetailCard({
           )}
 
           <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="col-span-2 rounded-md border border-cyan-500/35 bg-linear-to-r from-cyan-500/12 via-slate-950/80 to-slate-950/80 p-2">
+              <p className="text-xs uppercase tracking-wide text-cyan-300/90">
+                {copy.globalRank}
+              </p>
+              <p className="mt-1 text-lg font-semibold text-cyan-100">
+                {teamGlobalRankLabel}
+              </p>
+            </div>
             <div className="rounded-md border border-slate-800 bg-slate-950/40 p-2">
               <p className="text-xs uppercase tracking-wide text-slate-400">
                 {copy.country}

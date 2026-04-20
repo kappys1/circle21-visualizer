@@ -24,6 +24,7 @@ type DashboardLanguage = "es" | "en";
 
 const LANGUAGE_QUERY_PARAM = "lang";
 const LANGUAGE_STORAGE_KEY = "wodcelona:language";
+const FOLLOWED_TEAMS_STORAGE_PREFIX = "wodcelona:followed-teams";
 
 function resolveLanguageFromValue(
   value: string | null,
@@ -45,6 +46,33 @@ function resolveLanguageFromValue(
   return null;
 }
 
+function parseFollowedTeamIds(rawValue: string | null): string[] {
+  if (!rawValue) {
+    return [];
+  }
+
+  try {
+    const parsedValue = JSON.parse(rawValue);
+
+    if (!Array.isArray(parsedValue)) {
+      return [];
+    }
+
+    return Array.from(
+      new Set(
+        parsedValue
+          .filter(
+            (id): id is string =>
+              typeof id === "string" && id.trim().length > 0,
+          )
+          .map((id) => id.trim()),
+      ),
+    );
+  } catch {
+    return [];
+  }
+}
+
 export default function Home() {
   const dashboard = useLeaderboardDashboard();
   const [language, setLanguage] = useState<DashboardLanguage>(() => {
@@ -62,6 +90,65 @@ export default function Home() {
 
     return queryLanguage ?? storageLanguage ?? "es";
   });
+  const [followedTeamsVersion, setFollowedTeamsVersion] = useState(0);
+
+  const followedTeamsStorageKey = useMemo(() => {
+    if (dashboard.divisionMode !== "team") {
+      return null;
+    }
+
+    const normalizedSlug = dashboard.activeSlug.trim();
+    const normalizedDivisionId = dashboard.selectedDivisionId.trim();
+
+    if (normalizedSlug.length === 0 || normalizedDivisionId.length === 0) {
+      return null;
+    }
+
+    return `${FOLLOWED_TEAMS_STORAGE_PREFIX}:${normalizedSlug}:${normalizedDivisionId}`;
+  }, [
+    dashboard.activeSlug,
+    dashboard.divisionMode,
+    dashboard.selectedDivisionId,
+  ]);
+
+  const followedTeamIds = useMemo(() => {
+    const storageVersion = followedTeamsVersion;
+
+    if (storageVersion < 0) {
+      return [];
+    }
+
+    if (globalThis.window === undefined || !followedTeamsStorageKey) {
+      return [];
+    }
+
+    try {
+      const storedValue = globalThis.window.localStorage.getItem(
+        followedTeamsStorageKey,
+      );
+      return parseFollowedTeamIds(storedValue);
+    } catch {
+      return [];
+    }
+  }, [followedTeamsStorageKey, followedTeamsVersion]);
+
+  const followedTeamLookup = useMemo(
+    () => new Set(followedTeamIds),
+    [followedTeamIds],
+  );
+  const globalRankLookup = useMemo(
+    () =>
+      Object.fromEntries(
+        dashboard.leaderboardRows.map((row, index) => [row.id, index + 1]),
+      ),
+    [dashboard.leaderboardRows],
+  );
+  const selectedTeamGlobalRank = dashboard.selectedTeamId
+    ? (globalRankLookup[dashboard.selectedTeamId] ?? null)
+    : null;
+  const selectedAthleteGlobalRank = dashboard.selectedAthlete?.athleteId
+    ? (globalRankLookup[dashboard.selectedAthlete.athleteId] ?? null)
+    : null;
   const finalCountRaw = dashboard.selectedDivision?.final_count;
   let finalCount: number | null = null;
 
@@ -102,6 +189,33 @@ export default function Home() {
       `${currentUrl.pathname}?${currentUrl.searchParams.toString()}${currentUrl.hash}`,
     );
   }, [language]);
+
+  const setTeamFollowed = (teamId: string, followed: boolean) => {
+    if (globalThis.window === undefined || !followedTeamsStorageKey) {
+      return;
+    }
+
+    try {
+      const currentValue = parseFollowedTeamIds(
+        globalThis.window.localStorage.getItem(followedTeamsStorageKey),
+      );
+      const nextIds = new Set(currentValue);
+
+      if (followed) {
+        nextIds.add(teamId);
+      } else {
+        nextIds.delete(teamId);
+      }
+
+      globalThis.window.localStorage.setItem(
+        followedTeamsStorageKey,
+        JSON.stringify(Array.from(nextIds)),
+      );
+      setFollowedTeamsVersion((current) => current + 1);
+    } catch {
+      // Ignore storage errors (privacy mode, disabled storage, etc.).
+    }
+  };
 
   const copy = useMemo(
     () =>
@@ -338,6 +452,7 @@ export default function Home() {
                 rankRows={dashboard.leaderboardRows}
                 wodColumns={dashboard.wodColumns}
                 loading={dashboard.boardLoading}
+                followedTeamIds={followedTeamIds}
                 finalCount={
                   typeof finalCount === "number" && Number.isFinite(finalCount)
                     ? finalCount
@@ -365,9 +480,22 @@ export default function Home() {
         }}
         loading={dashboard.teamLoading}
         teamsCount={dashboard.teamsDirectory.length}
+        selectedTeamGlobalRank={selectedTeamGlobalRank}
         selectedTeamId={dashboard.selectedTeamId}
         selectedTeamPreview={dashboard.selectedTeamPreview}
         selectedTeamDetail={dashboard.selectedTeamDetail}
+        isSelectedTeamFollowed={
+          dashboard.selectedTeamId
+            ? followedTeamLookup.has(dashboard.selectedTeamId)
+            : false
+        }
+        onFollowSelectedTeamChange={(followed) => {
+          if (!dashboard.selectedTeamId) {
+            return;
+          }
+
+          setTeamFollowed(dashboard.selectedTeamId, followed);
+        }}
         teamMembers={dashboard.teamMembers}
         teamAthleteResults={dashboard.teamAthleteResults}
         teamAthleteResultsLoading={dashboard.teamAthleteResultsLoading}
@@ -379,6 +507,7 @@ export default function Home() {
           language={language}
           open={Boolean(dashboard.selectedAthlete)}
           athlete={dashboard.selectedAthlete}
+          globalRank={selectedAthleteGlobalRank}
           loading={dashboard.athleteLoading}
           results={dashboard.sortedAthleteResults}
           onOpenChange={(open) => {

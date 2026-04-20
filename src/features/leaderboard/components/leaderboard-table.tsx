@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 
 import type {
@@ -21,6 +22,7 @@ import type {
   WodColumnView,
 } from "@/features/leaderboard/types";
 import { formatPoints, rankPoints } from "@/features/leaderboard/utils";
+import { cn } from "@/lib/utils";
 
 type SortDirection = "asc" | "desc";
 type SortKey = "rank" | "name" | "points" | `wod:${string}`;
@@ -42,6 +44,7 @@ interface LeaderboardTableProps {
   rankRows?: LeaderboardRow[];
   wodColumns: WodColumnView[];
   loading: boolean;
+  followedTeamIds?: string[];
   finalCount: number | null;
   selectedTeamId: string | null;
   onSelectTeam: (team: LeaderboardTeamRow) => void;
@@ -60,6 +63,7 @@ export function LeaderboardTable({
   rankRows,
   wodColumns,
   loading,
+  followedTeamIds = [],
   finalCount,
   selectedTeamId,
   onSelectTeam,
@@ -79,6 +83,7 @@ export function LeaderboardTable({
           updatingLeaderboard: "Updating leaderboard...",
           noParticipants: "No participants for this category.",
           noClub: "No club",
+          followedTag: "Following",
           horizontalScrollHint: "Swipe horizontally to see all WODs.",
         }
       : {
@@ -88,9 +93,15 @@ export function LeaderboardTable({
           updatingLeaderboard: "Actualizando clasificacion...",
           noParticipants: "No hay participantes para esta categoria.",
           noClub: "Sin club",
+          followedTag: "Seguido",
           horizontalScrollHint:
             "Desliza horizontalmente para ver todos los WODs.",
         };
+
+  const followedTeamLookup = useMemo(
+    () => new Set(followedTeamIds),
+    [followedTeamIds],
+  );
 
   const rankLookup = useMemo(() => {
     const rankingSourceRows = rankRows ?? rows;
@@ -294,6 +305,8 @@ export function LeaderboardTable({
                     : null;
                 const isSelectedTeam =
                   mode === "team" && selectedTeamId === row.id;
+                const isFollowedTeam =
+                  mode === "team" && followedTeamLookup.has(row.id);
                 const isCutoffRow = cutoffRowId === row.id;
                 const rank = rankLookup[row.id] ?? "-";
 
@@ -315,9 +328,12 @@ export function LeaderboardTable({
                   <TableRow
                     key={row.id}
                     data-state={isSelectedTeam ? "selected" : undefined}
-                    className={`${
-                      isCutoffRow ? "border-b-2 border-b-amber-400/90 " : ""
-                    }group cursor-pointer`}
+                    className={cn(
+                      "group cursor-pointer",
+                      isCutoffRow && "border-b-2 border-b-amber-400/90",
+                      isFollowedTeam &&
+                        "bg-emerald-500/10 ring-1 ring-inset ring-emerald-400/35 hover:bg-emerald-500/15",
+                    )}
                     onClick={openRowDetail}
                   >
                     <TableCell className="font-mono text-slate-400">
@@ -325,9 +341,18 @@ export function LeaderboardTable({
                     </TableCell>
 
                     <TableCell className="min-w-44">
-                      <p className="whitespace-nowrap font-semibold text-slate-100 group-hover:text-sky-300">
-                        {row.name}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="whitespace-nowrap font-semibold text-slate-100 group-hover:text-sky-300">
+                          {row.name}
+                        </p>
+
+                        {isFollowedTeam && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/50 bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-200">
+                            <Check className="h-3 w-3" />
+                            {copy.followedTag}
+                          </span>
+                        )}
+                      </div>
 
                       <p className="mt-1 hidden text-xs text-slate-400 md:block">
                         {(row.country ?? "-") +

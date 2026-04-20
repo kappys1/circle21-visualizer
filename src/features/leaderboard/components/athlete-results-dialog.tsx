@@ -33,6 +33,7 @@ interface AthleteResultsDialogProps {
   language?: DashboardLanguage;
   open: boolean;
   athlete: AthletePanelState | null;
+  globalRank: number | null;
   loading: boolean;
   results: AthleteWorkoutResultView[];
   onOpenChange: (open: boolean) => void;
@@ -42,15 +43,21 @@ export function AthleteResultsDialog({
   language = "es",
   open,
   athlete,
+  globalRank,
   loading,
   results,
   onOpenChange,
 }: Readonly<AthleteResultsDialogProps>) {
   const athleteCountry = formatCountryWithFlag(athlete?.country);
+  const athleteGlobalRankLabel =
+    typeof globalRank === "number" && globalRank > 0
+      ? `#${Math.trunc(globalRank)}`
+      : "-";
   const copy =
     language === "en"
       ? {
           athleteDetail: "Athlete details",
+          globalRank: "Global rank",
           wodCount: "WODs",
           athleteId: "Athlete ID",
           country: "Country",
@@ -64,6 +71,7 @@ export function AthleteResultsDialog({
         }
       : {
           athleteDetail: "Detalle de atleta",
+          globalRank: "Posicion global",
           wodCount: "WODs",
           athleteId: "ID atleta",
           country: "Pais",
@@ -82,9 +90,17 @@ export function AthleteResultsDialog({
         <DrawerHeader>
           <div className="flex items-center justify-between gap-2 pr-8">
             <DrawerTitle>{athlete?.name ?? copy.athleteDetail}</DrawerTitle>
-            <Badge variant="outline">
-              {copy.wodCount}: {results.length}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className="border-cyan-500/40 bg-cyan-500/10 text-cyan-200"
+              >
+                {copy.globalRank}: {athleteGlobalRankLabel}
+              </Badge>
+              <Badge variant="outline">
+                {copy.wodCount}: {results.length}
+              </Badge>
+            </div>
           </div>
           <DrawerDescription className="space-y-1">
             <span className="block">
