@@ -440,14 +440,6 @@ export function TeamDetailCard({
           )}
 
           <div className="grid grid-cols-2 gap-2 text-sm">
-            <div className="col-span-2 rounded-md border border-cyan-500/35 bg-linear-to-r from-cyan-500/12 via-slate-950/80 to-slate-950/80 p-2">
-              <p className="text-xs uppercase tracking-wide text-cyan-300/90">
-                {copy.globalRank}
-              </p>
-              <p className="mt-1 text-lg font-semibold text-cyan-100">
-                {teamGlobalRankLabel}
-              </p>
-            </div>
             <div className="rounded-md border border-slate-800 bg-slate-950/40 p-2">
               <p className="text-xs uppercase tracking-wide text-slate-400">
                 {copy.country}
@@ -462,6 +454,15 @@ export function TeamDetailCard({
                 {copy.club}
               </p>
               <p className="mt-1 font-medium text-slate-100">{teamClub}</p>
+            </div>
+
+            <div className="col-span-2 rounded-md border border-cyan-500/35 bg-linear-to-r from-cyan-500/12 via-slate-950/80 to-slate-950/80 p-2">
+              <p className="text-xs uppercase tracking-wide text-cyan-300/90">
+                {copy.globalRank}
+              </p>
+              <p className="mt-1 text-lg font-semibold text-cyan-100">
+                {teamGlobalRankLabel}
+              </p>
             </div>
           </div>
 
