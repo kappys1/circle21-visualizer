@@ -152,12 +152,75 @@ function resolveInitialDivisionId(divisions: CompetitionDivision[]): string {
   return divisionIdFromQuery ?? fallbackDivisionId;
 }
 
+function asText(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function normalizeSearchValue(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replaceAll(/[\u0300-\u036f]/g, "");
+}
+
+function resolveTeamMemberSearchName(
+  member: TeamMember,
+  index: number,
+): string {
+  const nestedAthlete = member.athlete;
+  const nestedUser = nestedAthlete?.user;
+
+  return (
+    asText(member.name) ??
+    asText(member.athlete_name) ??
+    asText(member.full_name) ??
+    asText(member.display_name) ??
+    asText(nestedAthlete?.name) ??
+    asText(nestedAthlete?.athlete_name) ??
+    asText(nestedAthlete?.full_name) ??
+    asText(nestedAthlete?.display_name) ??
+    asText(nestedUser?.name) ??
+    (member.athlete_id
+      ? `Atleta ${member.athlete_id.slice(0, 8)}`
+      : `Atleta ${index + 1}`)
+  );
+}
+
+async function mapWithConcurrency<TItem, TResult>(
+  items: TItem[],
+  concurrency: number,
+  mapper: (item: TItem) => Promise<TResult>,
+): Promise<TResult[]> {
+  if (items.length === 0) {
+    return [];
+  }
+
+  const results = new Array<TResult>(items.length);
+  const workerCount = Math.min(items.length, Math.max(1, concurrency));
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+
+      results[currentIndex] = await mapper(items[currentIndex]);
+    }
+  }
+
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+  return results;
+}
+
 interface LeaderboardDashboardApi extends LeaderboardDashboardState {
   setSlugInput: (value: string) => void;
   openSlugEditor: () => void;
   closeSlugEditor: () => void;
   applySlug: () => void;
   setSelectedDivisionId: (value: string) => void;
+  setTeamSearchQuery: (value: string) => void;
   selectTeam: (team: LeaderboardTeamRow) => void;
   closeTeamPanel: () => void;
   openAthletePanel: (
@@ -177,6 +240,7 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [wodCatalog, setWodCatalog] = useState<WodCatalogItem[]>([]);
   const [selectedDivisionId, setSelectedDivisionIdState] = useState<string>("");
+  const [teamSearchQuery, setTeamSearchQueryState] = useState<string>("");
 
   const [individualBoard, setIndividualBoard] =
     useState<IndividualLeaderboardResponse | null>(null);
@@ -184,6 +248,11 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
     null,
   );
   const [teamsDirectory, setTeamsDirectory] = useState<TeamEntity[]>([]);
+  const [teamSearchMembersByTeamId, setTeamSearchMembersByTeamId] = useState<
+    Record<string, TeamMember[]>
+  >({});
+  const [teamSearchMembersLoading, setTeamSearchMembersLoading] =
+    useState<boolean>(false);
 
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [selectedTeamPreview, setSelectedTeamPreview] =
@@ -265,10 +334,13 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
       setCompetition(null);
       setWodCatalog([]);
       setSelectedDivisionIdState("");
+      setTeamSearchQueryState("");
 
       setIndividualBoard(null);
       setTeamBoard(null);
       setTeamsDirectory([]);
+      setTeamSearchMembersByTeamId({});
+      setTeamSearchMembersLoading(false);
       setSelectedTeamId(null);
       setSelectedTeamPreview(null);
       setSelectedTeamDetail(null);
@@ -328,8 +400,11 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
       setSelectedTeamPreview(null);
       setSelectedTeamDetail(null);
       setTeamMembers([]);
+      setTeamSearchMembersByTeamId({});
+      setTeamSearchMembersLoading(false);
       setTeamAthleteResults({});
       setTeamAthleteResultsLoading(false);
+      setTeamSearchQueryState("");
       setSelectedAthlete(null);
       setAthleteResults([]);
 
@@ -378,6 +453,59 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
       cancelled = true;
     };
   }, [competition, selectedDivisionId, divisionMode]);
+
+  useEffect(() => {
+    if (divisionMode !== "team") {
+      return;
+    }
+
+    const searchableTeams = (teamBoard?.teams ?? []).filter(
+      (team): team is LeaderboardTeamRow =>
+        typeof team.id === "string" && team.id.trim().length > 0,
+    );
+
+    if (searchableTeams.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadTeamSearchMembers() {
+      setTeamSearchMembersLoading(true);
+      setTeamSearchMembersByTeamId({});
+
+      try {
+        const entries = await mapWithConcurrency(
+          searchableTeams,
+          6,
+          async (team) => {
+            try {
+              const members = await fetchTeamMembers(team.id);
+              return [team.id, members] as const;
+            } catch {
+              return [team.id, []] as const;
+            }
+          },
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        setTeamSearchMembersByTeamId(Object.fromEntries(entries));
+      } finally {
+        if (!cancelled) {
+          setTeamSearchMembersLoading(false);
+        }
+      }
+    }
+
+    void loadTeamSearchMembers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [divisionMode, teamBoard]);
 
   useEffect(() => {
     if (!selectedTeamId || divisionMode !== "team") {
@@ -618,6 +746,57 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
     );
   }, [divisionMode, teamBoard, individualBoard]);
 
+  const filteredLeaderboardRows = useMemo<LeaderboardRow[]>(() => {
+    const normalizedQuery = normalizeSearchValue(teamSearchQuery);
+
+    if (divisionMode !== "team" || normalizedQuery.length < 2) {
+      return leaderboardRows;
+    }
+
+    const searchableTeamIds = new Set<string>();
+    const directoryByTeamId = Object.fromEntries(
+      teamsDirectory
+        .filter(
+          (team): team is TeamEntity & { id: string } =>
+            typeof team.id === "string" && team.id.trim().length > 0,
+        )
+        .map((team) => [team.id, team]),
+    );
+
+    (teamBoard?.teams ?? []).forEach((team) => {
+      if (typeof team.id !== "string" || team.id.trim().length === 0) {
+        return;
+      }
+
+      const directoryEntry = directoryByTeamId[team.id];
+      const teamName = asText(team.name) ?? asText(directoryEntry?.name) ?? "";
+
+      if (normalizeSearchValue(teamName).includes(normalizedQuery)) {
+        searchableTeamIds.add(team.id);
+        return;
+      }
+
+      const members = teamSearchMembersByTeamId[team.id] ?? [];
+      const hasAthleteMatch = members.some((member, index) => {
+        const memberName = resolveTeamMemberSearchName(member, index);
+        return normalizeSearchValue(memberName).includes(normalizedQuery);
+      });
+
+      if (hasAthleteMatch) {
+        searchableTeamIds.add(team.id);
+      }
+    });
+
+    return leaderboardRows.filter((row) => searchableTeamIds.has(row.id));
+  }, [
+    divisionMode,
+    leaderboardRows,
+    teamBoard,
+    teamSearchMembersByTeamId,
+    teamSearchQuery,
+    teamsDirectory,
+  ]);
+
   const wodColumns = useMemo<WodColumnView[]>(() => {
     if (divisionMode === "team") {
       return (teamBoard?.wods ?? []).map((wodNode, index) => {
@@ -765,9 +944,14 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
 
   const setSelectedDivisionId = useCallback((value: string) => {
     setSelectedDivisionIdState(value);
+    setTeamSearchQueryState("");
   }, []);
 
-  const selectTeam = useCallback((team: LeaderboardTeamRow) => {
+  const setTeamSearchQuery = useCallback((value: string) => {
+    setTeamSearchQueryState(value);
+  }, []);
+
+  const applyTeamSelection = useCallback((team: LeaderboardTeamRow) => {
     setSelectedTeamId(team.id);
     setSelectedTeamPreview(team);
     setTeamAthleteResults({});
@@ -775,6 +959,13 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
     setSelectedAthlete(null);
     setAthleteResults([]);
   }, []);
+
+  const selectTeam = useCallback(
+    (team: LeaderboardTeamRow) => {
+      applyTeamSelection(team);
+    },
+    [applyTeamSelection],
+  );
 
   const closeTeamPanel = useCallback(() => {
     setSelectedTeamId(null);
@@ -817,9 +1008,14 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
     selectedDivisionId,
     selectedDivision,
     divisionMode,
+    teamSearchQuery,
+    teamRows: teamBoard?.teams ?? [],
     leaderboardRows,
+    filteredLeaderboardRows,
     wodColumns,
     teamsDirectory,
+    teamSearchMembersByTeamId,
+    teamSearchMembersLoading,
     selectedTeamId,
     selectedTeamPreview,
     selectedTeamDetail,
@@ -841,6 +1037,7 @@ export function useLeaderboardDashboard(): LeaderboardDashboardApi {
     closeSlugEditor,
     applySlug,
     setSelectedDivisionId,
+    setTeamSearchQuery,
     selectTeam,
     closeTeamPanel,
     openAthletePanel,

@@ -24,6 +24,7 @@ import { formatPoints, rankPoints } from "@/features/leaderboard/utils";
 
 type SortDirection = "asc" | "desc";
 type SortKey = "rank" | "name" | "points" | `wod:${string}`;
+type DashboardLanguage = "es" | "en";
 
 interface SortState {
   key: SortKey;
@@ -35,8 +36,10 @@ function toggleDirection(direction: SortDirection): SortDirection {
 }
 
 interface LeaderboardTableProps {
+  language?: DashboardLanguage;
   mode: DivisionMode;
   rows: LeaderboardRow[];
+  rankRows?: LeaderboardRow[];
   wodColumns: WodColumnView[];
   loading: boolean;
   finalCount: number | null;
@@ -51,8 +54,10 @@ interface LeaderboardTableProps {
 }
 
 export function LeaderboardTable({
+  language = "es",
   mode,
   rows,
+  rankRows,
   wodColumns,
   loading,
   finalCount,
@@ -64,10 +69,36 @@ export function LeaderboardTable({
     key: "rank",
     direction: "asc",
   });
+  const sortLocale = language === "en" ? "en" : "es";
+  const copy =
+    language === "en"
+      ? {
+          team: "Team",
+          athlete: "Athlete",
+          points: "Points",
+          updatingLeaderboard: "Updating leaderboard...",
+          noParticipants: "No participants for this category.",
+          noClub: "No club",
+          horizontalScrollHint: "Swipe horizontally to see all WODs.",
+        }
+      : {
+          team: "Equipo",
+          athlete: "Atleta",
+          points: "Puntos",
+          updatingLeaderboard: "Actualizando clasificacion...",
+          noParticipants: "No hay participantes para esta categoria.",
+          noClub: "Sin club",
+          horizontalScrollHint:
+            "Desliza horizontalmente para ver todos los WODs.",
+        };
 
   const rankLookup = useMemo(() => {
-    return Object.fromEntries(rows.map((row, index) => [row.id, index + 1]));
-  }, [rows]);
+    const rankingSourceRows = rankRows ?? rows;
+
+    return Object.fromEntries(
+      rankingSourceRows.map((row, index) => [row.id, index + 1]),
+    );
+  }, [rankRows, rows]);
 
   const resolvedSortKey = useMemo<SortKey>(() => {
     if (!sortState.key.startsWith("wod:")) {
@@ -85,7 +116,9 @@ export function LeaderboardTable({
     const nextRows = [...rows];
 
     const compareByName = (first: LeaderboardRow, second: LeaderboardRow) =>
-      first.name.localeCompare(second.name, "es", { sensitivity: "base" });
+      first.name.localeCompare(second.name, sortLocale, {
+        sensitivity: "base",
+      });
 
     nextRows.sort((first, second) => {
       if (resolvedSortKey === "name") {
@@ -126,7 +159,14 @@ export function LeaderboardTable({
     });
 
     return nextRows;
-  }, [rows, sortState.direction, resolvedSortKey, rankLookup, wodColumns]);
+  }, [
+    rows,
+    sortState.direction,
+    resolvedSortKey,
+    rankLookup,
+    sortLocale,
+    wodColumns,
+  ]);
 
   const cutoffRowId = useMemo(() => {
     if (
@@ -137,8 +177,9 @@ export function LeaderboardTable({
       return null;
     }
 
-    return rows[finalCount - 1]?.id ?? null;
-  }, [rows, finalCount]);
+    const rankingSourceRows = rankRows ?? rows;
+    return rankingSourceRows[finalCount - 1]?.id ?? null;
+  }, [rankRows, rows, finalCount]);
 
   const setSort = (key: SortKey) => {
     setSortState((current) => {
@@ -201,12 +242,12 @@ export function LeaderboardTable({
                 className: "w-14 whitespace-nowrap",
               })}
               {renderSortableHead({
-                label: mode === "team" ? "Equipo" : "Atleta",
+                label: mode === "team" ? copy.team : copy.athlete,
                 sortKey: "name",
                 className: "min-w-44",
               })}
               {renderSortableHead({
-                label: "Puntos",
+                label: copy.points,
                 sortKey: "points",
                 className: "w-24 whitespace-nowrap",
               })}
@@ -229,7 +270,7 @@ export function LeaderboardTable({
                   colSpan={colSpan}
                   className="py-8 text-center text-slate-400"
                 >
-                  Actualizando clasificación...
+                  {copy.updatingLeaderboard}
                 </TableCell>
               </TableRow>
             )}
@@ -240,7 +281,7 @@ export function LeaderboardTable({
                   colSpan={colSpan}
                   className="py-8 text-center text-slate-400"
                 >
-                  No hay participantes para esta categoría.
+                  {copy.noParticipants}
                 </TableCell>
               </TableRow>
             )}
@@ -291,7 +332,7 @@ export function LeaderboardTable({
                       <p className="mt-1 hidden text-xs text-slate-400 md:block">
                         {(row.country ?? "-") +
                           " / " +
-                          (row.club_name ?? "Sin club")}
+                          (row.club_name ?? copy.noClub)}
                       </p>
                     </TableCell>
 
@@ -319,7 +360,7 @@ export function LeaderboardTable({
       </div>
 
       <p className="border-t border-slate-800/80 px-3 py-2 text-[11px] text-slate-400 md:hidden">
-        Desliza horizontalmente para ver todos los WODs.
+        {copy.horizontalScrollHint}
       </p>
     </div>
   );

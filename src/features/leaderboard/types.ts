@@ -41,9 +41,14 @@ export interface LeaderboardDashboardState {
   selectedDivisionId: string;
   selectedDivision: CompetitionDivision | null;
   divisionMode: DivisionMode;
+  teamSearchQuery: string;
+  teamRows: LeaderboardTeamRow[];
   leaderboardRows: LeaderboardRow[];
+  filteredLeaderboardRows: LeaderboardRow[];
   wodColumns: WodColumnView[];
   teamsDirectory: TeamEntity[];
+  teamSearchMembersByTeamId: Record<string, TeamMember[]>;
+  teamSearchMembersLoading: boolean;
   selectedTeamId: string | null;
   selectedTeamPreview: LeaderboardTeamRow | null;
   selectedTeamDetail: TeamEntity | null;

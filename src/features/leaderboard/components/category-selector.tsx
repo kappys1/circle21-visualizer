@@ -21,7 +21,10 @@ import {
 import type { CompetitionDivision } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+type DashboardLanguage = "es" | "en";
+
 interface CategorySelectorProps {
+  language?: DashboardLanguage;
   divisions: CompetitionDivision[];
   selectedDivisionId: string;
   className?: string;
@@ -29,6 +32,7 @@ interface CategorySelectorProps {
 }
 
 export function CategorySelector({
+  language = "es",
   divisions,
   selectedDivisionId,
   className,
@@ -57,10 +61,29 @@ export function CategorySelector({
     setOpen(false);
   };
 
+  const copy =
+    language === "en"
+      ? {
+          title: "Category",
+          emptySelection: "Select a category",
+          searchPlaceholder: "Search category...",
+          emptyResult: "No matching categories.",
+          individualHeading: "Individual",
+          teamsHeading: "Teams",
+        }
+      : {
+          title: "Categoria",
+          emptySelection: "Selecciona una categoria",
+          searchPlaceholder: "Buscar categoria...",
+          emptyResult: "No hay categorias que coincidan.",
+          individualHeading: "Individual",
+          teamsHeading: "Equipos",
+        };
+
   return (
     <div className={cn("space-y-2", className)}>
       <p className="text-xs uppercase tracking-wide text-slate-400">
-        Categoría
+        {copy.title}
       </p>
 
       <Popover open={open} onOpenChange={setOpen}>
@@ -71,7 +94,7 @@ export function CategorySelector({
             aria-expanded={open}
             className="w-full justify-between border-slate-700 bg-slate-950/70 text-sm font-normal text-slate-100 hover:bg-slate-900 lg:max-w-xl"
           >
-            {selectedDivision?.name ?? "Selecciona una categoría"}
+            {selectedDivision?.name ?? copy.emptySelection}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-70" />
           </Button>
         </PopoverTrigger>
@@ -81,12 +104,12 @@ export function CategorySelector({
           className="w-(--radix-popover-trigger-width) p-0"
         >
           <Command>
-            <CommandInput placeholder="Buscar categoría..." />
+            <CommandInput placeholder={copy.searchPlaceholder} />
             <CommandList>
-              <CommandEmpty>No hay categorías que coincidan.</CommandEmpty>
+              <CommandEmpty>{copy.emptyResult}</CommandEmpty>
 
               {individualDivisions.length > 0 && (
-                <CommandGroup heading="Individual">
+                <CommandGroup heading={copy.individualHeading}>
                   {individualDivisions.map((division) => (
                     <CommandItem
                       key={division.id}
@@ -112,7 +135,7 @@ export function CategorySelector({
               )}
 
               {teamDivisions.length > 0 && (
-                <CommandGroup heading="Equipos">
+                <CommandGroup heading={copy.teamsHeading}>
                   {teamDivisions.map((division) => (
                     <CommandItem
                       key={division.id}

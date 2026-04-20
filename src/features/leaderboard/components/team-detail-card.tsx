@@ -38,7 +38,10 @@ import {
   rankPoints,
 } from "@/features/leaderboard/utils";
 
+type DashboardLanguage = "es" | "en";
+
 interface TeamDetailCardProps {
+  language?: DashboardLanguage;
   mode: DivisionMode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -90,6 +93,7 @@ function hasWorkoutUpload(entry: AthleteWorkoutResultView): boolean {
 }
 
 export function TeamDetailCard({
+  language = "es",
   mode,
   open,
   onOpenChange,
@@ -109,9 +113,90 @@ export function TeamDetailCard({
     return null;
   }
 
+  const copy =
+    language === "en"
+      ? {
+          selectTeam: "Select a team",
+          athleteFallback: "Athlete",
+          teamsLabel: "Teams",
+          drawerDescription: "Members, results and team videos in one panel.",
+          expandCoverAria: (name: string) => `Expand cover of ${name}`,
+          coverAria: (name: string) => `Cover of ${name}`,
+          clickToExpandImage: "Click the image to view it larger",
+          country: "Country",
+          club: "Club",
+          loadingTeamDetail: "Loading team detail...",
+          selectTeamHint: "Select a team from the table to open this drawer.",
+          membersLoadFailed: "Could not load team members for this entry.",
+          resultsPerWorkout: "Results per workout",
+          resultsPerWorkoutHint: "Team rank and points for each WOD.",
+          rank: "Rank",
+          workout: "Workout",
+          score: "Score",
+          points: "Points",
+          teamMembersAndScores: "Team members and scores",
+          teamMembersHint:
+            "Each member displays workouts with score, tie break, reps and video.",
+          uploaded: "Uploaded",
+          memberWithoutAthleteId: "Member without available athlete_id.",
+          loadingMemberWorkouts: "Loading member workouts...",
+          noMemberResults: "No published results for this member.",
+          statusError: "Error",
+          statusUploaded: "Uploaded",
+          statusPending: "Pending",
+          tieBreak: "Tie break",
+          repsIfNotFinished: "Reps (if not finished)",
+          openVideo: "Open video",
+          noVideoSubmitted: "No video submitted",
+          error: "Error",
+          syncingResults: "Syncing member results and videos...",
+          expandedImageOf: (name: string) => `Expanded image of ${name}`,
+        }
+      : {
+          selectTeam: "Selecciona un equipo",
+          athleteFallback: "Atleta",
+          teamsLabel: "Equipos",
+          drawerDescription:
+            "Integrantes, resultados y videos del equipo en un solo panel.",
+          expandCoverAria: (name: string) => `Ampliar cover de ${name}`,
+          coverAria: (name: string) => `Cover de ${name}`,
+          clickToExpandImage: "Click en la imagen para verla en grande",
+          country: "Pais",
+          club: "Club",
+          loadingTeamDetail: "Cargando detalle de equipo...",
+          selectTeamHint:
+            "Selecciona un equipo en la tabla para abrir este drawer.",
+          membersLoadFailed:
+            "No se pudieron cargar integrantes del equipo para este registro.",
+          resultsPerWorkout: "Resultados por workout",
+          resultsPerWorkoutHint: "Posicion y puntos del equipo en cada WOD.",
+          rank: "Rank",
+          workout: "Workout",
+          score: "Score",
+          points: "Points",
+          teamMembersAndScores: "Integrantes y resultados",
+          teamMembersHint:
+            "Cada integrante muestra sus workouts con score, tie break, reps y video.",
+          uploaded: "Subidos",
+          memberWithoutAthleteId: "Miembro sin athlete_id disponible.",
+          loadingMemberWorkouts: "Cargando workouts del integrante...",
+          noMemberResults: "No hay resultados publicados para este integrante.",
+          statusError: "Error",
+          statusUploaded: "Subido",
+          statusPending: "Pendiente",
+          tieBreak: "Tie break",
+          repsIfNotFinished: "Reps (si no termino)",
+          openVideo: "Abrir video",
+          noVideoSubmitted: "Sin video enviado",
+          error: "Error",
+          syncingResults:
+            "Sincronizando resultados y videos de los integrantes...",
+          expandedImageOf: (name: string) => `Imagen ampliada de ${name}`,
+        };
+
   const teamName =
     findFirstText(selectedTeamDetail?.name, selectedTeamPreview?.name) ??
-    "Selecciona un equipo";
+    copy.selectTeam;
   const teamCountry =
     findFirstText(selectedTeamDetail?.country, selectedTeamPreview?.country) ??
     "-";
@@ -153,10 +238,10 @@ export function TeamDetailCard({
     }
 
     if (member.athlete_id) {
-      return `Atleta ${member.athlete_id.slice(0, 8)}`;
+      return `${copy.athleteFallback} ${member.athlete_id.slice(0, 8)}`;
     }
 
-    return `Atleta ${index + 1}`;
+    return `${copy.athleteFallback} ${index + 1}`;
   };
 
   const resolveMemberAvatar = (member: TeamMember): string | null => {
@@ -205,7 +290,7 @@ export function TeamDetailCard({
           null,
       );
 
-      const sortedRows = [...Object.values(lookup)].sort(
+      const sortedRows = Object.values(lookup).toSorted(
         (first, second) => rankPoints(first.points) - rankPoints(second.points),
       );
 
@@ -223,23 +308,27 @@ export function TeamDetailCard({
       const scoreAsTime = formatTimeWithMilliseconds(scoreSource);
       const tieBreakAsTime = formatTimeWithMilliseconds(tieBreakSource);
 
-      const rank =
-        directRank !== null && directRank > 0
-          ? String(Math.trunc(directRank))
-          : fallbackRank > 0
-            ? String(fallbackRank)
-            : "-";
+      let rank = "-";
+
+      if (directRank !== null && directRank > 0) {
+        rank = String(Math.trunc(directRank));
+      } else if (fallbackRank > 0) {
+        rank = String(fallbackRank);
+      }
+
+      const formattedScore =
+        scoreAsTime === "-" ? formatPoints(scoreSource ?? null) : scoreAsTime;
+      const formattedTieBreak =
+        tieBreakAsTime === "-"
+          ? formatPoints(tieBreakSource ?? null)
+          : tieBreakAsTime;
 
       return {
         key: teamWorkout.key,
         workout: teamWorkout.label,
         rank,
-        score:
-          scoreAsTime !== "-" ? scoreAsTime : formatPoints(scoreSource ?? null),
-        tieBreak:
-          tieBreakAsTime !== "-"
-            ? tieBreakAsTime
-            : formatPoints(tieBreakSource ?? null),
+        score: formattedScore,
+        tieBreak: formattedTieBreak,
         points: formatPoints(selectedWodRow?.points ?? null),
       };
     });
@@ -247,15 +336,15 @@ export function TeamDetailCard({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent side="right" className="overflow-y-auto sm:max-w-[640px]">
+      <DrawerContent side="right" className="overflow-y-auto sm:max-w-160">
         <DrawerHeader>
           <div className="flex items-center justify-between gap-2 pr-8">
             <DrawerTitle>{teamName}</DrawerTitle>
-            <Badge variant="outline">Equipos: {teamsCount}</Badge>
+            <Badge variant="outline">
+              {copy.teamsLabel}: {teamsCount}
+            </Badge>
           </div>
-          <DrawerDescription>
-            Integrantes, resultados y videos del equipo en un solo panel.
-          </DrawerDescription>
+          <DrawerDescription>{copy.drawerDescription}</DrawerDescription>
         </DrawerHeader>
 
         <CardContent className="space-y-4 px-0 pb-0">
@@ -264,16 +353,16 @@ export function TeamDetailCard({
               type="button"
               className="w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-900/40 text-left transition hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
               onClick={() => setIsCoverExpanded(true)}
-              aria-label={`Ampliar cover de ${teamName}`}
+              aria-label={copy.expandCoverAria(teamName)}
             >
               <div
                 className="h-44 w-full bg-cover bg-center"
                 style={{ backgroundImage: `url(${teamCover})` }}
-                aria-label={`Cover de ${teamName}`}
+                aria-label={copy.coverAria(teamName)}
               />
 
               <p className="px-3 py-2 text-xs text-slate-400">
-                Click en la imagen para verla en grande
+                {copy.clickToExpandImage}
               </p>
             </button>
           )}
@@ -281,7 +370,7 @@ export function TeamDetailCard({
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="rounded-md border border-slate-800 bg-slate-950/40 p-2">
               <p className="text-xs uppercase tracking-wide text-slate-400">
-                Pais
+                {copy.country}
               </p>
               <p className="mt-1 font-medium text-slate-100">
                 {teamCountryLabel}
@@ -290,38 +379,32 @@ export function TeamDetailCard({
 
             <div className="rounded-md border border-slate-800 bg-slate-950/40 p-2">
               <p className="text-xs uppercase tracking-wide text-slate-400">
-                Club
+                {copy.club}
               </p>
               <p className="mt-1 font-medium text-slate-100">{teamClub}</p>
             </div>
           </div>
 
           {loading && (
-            <p className="text-sm text-slate-400">
-              Cargando detalle de equipo...
-            </p>
+            <p className="text-sm text-slate-400">{copy.loadingTeamDetail}</p>
           )}
 
           {!loading && !hasSelectedTeam && (
-            <p className="text-sm text-slate-400">
-              Selecciona un equipo en la tabla para abrir este drawer.
-            </p>
+            <p className="text-sm text-slate-400">{copy.selectTeamHint}</p>
           )}
 
           {!loading && hasSelectedTeam && teamMembers.length === 0 && (
-            <p className="text-sm text-slate-400">
-              No se pudieron cargar integrantes del equipo para este registro.
-            </p>
+            <p className="text-sm text-slate-400">{copy.membersLoadFailed}</p>
           )}
 
           {!loading && hasSelectedTeam && workoutRows.length > 0 && (
             <div className="space-y-2">
               <div>
                 <h3 className="text-sm font-semibold text-slate-100">
-                  Results per Workout
+                  {copy.resultsPerWorkout}
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Posicion y puntos del equipo en cada WOD.
+                  {copy.resultsPerWorkoutHint}
                 </p>
               </div>
 
@@ -329,17 +412,17 @@ export function TeamDetailCard({
                 <table className="w-full text-sm">
                   <thead className="bg-slate-900/60 text-xs uppercase tracking-wide text-slate-400">
                     <tr>
-                      <th className="px-2 py-2 text-left">Rank</th>
-                      <th className="px-2 py-2 text-left">Workout</th>
-                      <th className="px-2 py-2 text-left">Score</th>
-                      <th className="px-2 py-2 text-left">Points</th>
+                      <th className="px-2 py-2 text-left">{copy.rank}</th>
+                      <th className="px-2 py-2 text-left">{copy.workout}</th>
+                      <th className="px-2 py-2 text-left">{copy.score}</th>
+                      <th className="px-2 py-2 text-left">{copy.points}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {workoutRows.map((row) => (
                       <tr key={row.key} className="border-t border-slate-800">
                         <td className="px-2 py-2 text-slate-300">{row.rank}</td>
-                        <td className="break-words px-2 py-2 font-medium text-slate-100">
+                        <td className="wrap-break-word px-2 py-2 font-medium text-slate-100">
                           {row.workout}
                         </td>
                         <td className="px-2 py-2 text-slate-300">
@@ -358,12 +441,9 @@ export function TeamDetailCard({
             <div className="space-y-2">
               <div>
                 <h3 className="text-sm font-semibold text-slate-100">
-                  Team Members and Scores
+                  {copy.teamMembersAndScores}
                 </h3>
-                <p className="text-xs text-slate-400">
-                  Cada integrante muestra sus workouts con score, tie break,
-                  reps y video.
-                </p>
+                <p className="text-xs text-slate-400">{copy.teamMembersHint}</p>
               </div>
 
               <Accordion type="multiple" className="space-y-2">
@@ -385,15 +465,21 @@ export function TeamDetailCard({
                     teamAthleteResultsLoading &&
                     !athleteResultEntries;
                   const totalWorkouts = athleteResults.length;
-                  const progressClassName = isAthleteLoading
-                    ? "border-slate-500/60 bg-slate-500/10 text-slate-300"
-                    : totalWorkouts === 0
-                      ? "border-slate-500/60 bg-slate-500/10 text-slate-300"
-                      : uploadedCount === 0
-                        ? "border-rose-500/60 bg-rose-500/10 text-rose-300"
-                        : uploadedCount === totalWorkouts
-                          ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-300"
-                          : "border-amber-500/60 bg-amber-500/10 text-amber-300";
+                  let progressClassName =
+                    "border-slate-500/60 bg-slate-500/10 text-slate-300";
+
+                  if (!isAthleteLoading && totalWorkouts > 0) {
+                    if (uploadedCount === 0) {
+                      progressClassName =
+                        "border-rose-500/60 bg-rose-500/10 text-rose-300";
+                    } else if (uploadedCount === totalWorkouts) {
+                      progressClassName =
+                        "border-emerald-500/60 bg-emerald-500/10 text-emerald-300";
+                    } else {
+                      progressClassName =
+                        "border-amber-500/60 bg-amber-500/10 text-amber-300";
+                    }
+                  }
                   const memberKey = `${member.id ?? member.athlete_id ?? index}`;
 
                   return (
@@ -435,7 +521,7 @@ export function TeamDetailCard({
                             variant="outline"
                             className={progressClassName}
                           >
-                            Subidos: {uploadedCount}/{totalWorkouts}
+                            {copy.uploaded}: {uploadedCount}/{totalWorkouts}
                           </Badge>
                         </div>
                       </AccordionTrigger>
@@ -443,13 +529,13 @@ export function TeamDetailCard({
                       <AccordionContent className="px-3 pb-3">
                         {!athleteId && (
                           <p className="text-xs text-slate-500">
-                            Miembro sin athlete_id disponible.
+                            {copy.memberWithoutAthleteId}
                           </p>
                         )}
 
                         {athleteId && isAthleteLoading && (
                           <p className="text-xs text-slate-400">
-                            Cargando workouts del integrante...
+                            {copy.loadingMemberWorkouts}
                           </p>
                         )}
 
@@ -457,7 +543,7 @@ export function TeamDetailCard({
                           !isAthleteLoading &&
                           athleteResults.length === 0 && (
                             <p className="text-xs text-slate-500">
-                              No hay resultados publicados para este integrante.
+                              {copy.noMemberResults}
                             </p>
                           )}
 
@@ -492,18 +578,29 @@ export function TeamDetailCard({
                                   entry.wodName.trim() !==
                                     entry.workoutName.trim() &&
                                   !entry.wodName.includes(",");
-
-                                const statusLabel = entry.error
-                                  ? "Error"
-                                  : hasUploaded
-                                    ? "Subido"
-                                    : "Pendiente";
-
-                                const statusClassName = entry.error
+                                let statusLabel = entry.error
+                                  ? copy.statusError
+                                  : copy.statusPending;
+                                let statusClassName = entry.error
                                   ? "border-rose-500/60 bg-rose-500/10 text-rose-300"
-                                  : hasUploaded
-                                    ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-300"
-                                    : "border-amber-500/60 bg-amber-500/10 text-amber-300";
+                                  : "border-amber-500/60 bg-amber-500/10 text-amber-300";
+
+                                if (!entry.error && hasUploaded) {
+                                  statusLabel = copy.statusUploaded;
+                                  statusClassName =
+                                    "border-emerald-500/60 bg-emerald-500/10 text-emerald-300";
+                                }
+
+                                const scoreText =
+                                  scoreAsTime === "-"
+                                    ? formatPoints(scoreSource)
+                                    : scoreAsTime;
+                                const tieBreakText =
+                                  tieBreakAsTime === "-"
+                                    ? formatPoints(tieBreakSource)
+                                    : tieBreakAsTime;
+                                const repsText =
+                                  reps === null ? "-" : formatPoints(reps);
 
                                 return (
                                   <AccordionItem
@@ -514,12 +611,12 @@ export function TeamDetailCard({
                                     <AccordionTrigger className="px-3 py-2 hover:no-underline">
                                       <div className="flex min-w-0 flex-1 items-start justify-between gap-2 pr-2">
                                         <div className="text-left">
-                                          <p className="break-words text-sm font-medium text-slate-100">
+                                          <p className="wrap-break-word text-sm font-medium text-slate-100">
                                             {entry.workoutName}
                                           </p>
 
                                           {showParentWodName && (
-                                            <p className="break-words text-xs text-slate-400">
+                                            <p className="wrap-break-word text-xs text-slate-400">
                                               {entry.wodName}
                                             </p>
                                           )}
@@ -549,31 +646,25 @@ export function TeamDetailCard({
                                             Score
                                           </p>
                                           <p className="font-medium text-slate-100">
-                                            {scoreAsTime !== "-"
-                                              ? scoreAsTime
-                                              : formatPoints(scoreSource)}
+                                            {scoreText}
                                           </p>
                                         </div>
 
                                         <div>
                                           <p className="text-xs uppercase tracking-wide text-slate-400">
-                                            Tie break
+                                            {copy.tieBreak}
                                           </p>
                                           <p className="font-medium text-slate-100">
-                                            {tieBreakAsTime !== "-"
-                                              ? tieBreakAsTime
-                                              : formatPoints(tieBreakSource)}
+                                            {tieBreakText}
                                           </p>
                                         </div>
 
                                         <div>
                                           <p className="text-xs uppercase tracking-wide text-slate-400">
-                                            Reps (si no termino)
+                                            {copy.repsIfNotFinished}
                                           </p>
                                           <p className="font-medium text-slate-100">
-                                            {reps !== null
-                                              ? formatPoints(reps)
-                                              : "-"}
+                                            {repsText}
                                           </p>
                                         </div>
                                       </div>
@@ -585,18 +676,18 @@ export function TeamDetailCard({
                                           rel="noreferrer"
                                           className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-sky-300 hover:text-sky-200"
                                         >
-                                          Abrir video{" "}
+                                          {copy.openVideo}{" "}
                                           <ExternalLink className="h-3.5 w-3.5" />
                                         </a>
                                       ) : (
                                         <p className="mt-2 text-xs text-slate-500">
-                                          Sin video enviado
+                                          {copy.noVideoSubmitted}
                                         </p>
                                       )}
 
                                       {entry.error && (
                                         <p className="mt-2 text-xs text-rose-300">
-                                          Error: {entry.error}
+                                          {copy.error}: {entry.error}
                                         </p>
                                       )}
                                     </AccordionContent>
@@ -614,9 +705,7 @@ export function TeamDetailCard({
           )}
 
           {teamAthleteResultsLoading && teamMembers.length > 0 && (
-            <p className="text-xs text-slate-400">
-              Sincronizando resultados y videos de los integrantes...
-            </p>
+            <p className="text-xs text-slate-400">{copy.syncingResults}</p>
           )}
         </CardContent>
       </DrawerContent>
@@ -625,12 +714,12 @@ export function TeamDetailCard({
         <Dialog open={isCoverExpanded} onOpenChange={setIsCoverExpanded}>
           <DialogContent className="w-[min(96vw,1200px)] max-w-none border-slate-700 bg-slate-950/95 p-3 sm:p-4">
             <DialogTitle className="sr-only">
-              Imagen ampliada de {teamName}
+              {copy.expandedImageOf(teamName)}
             </DialogTitle>
 
             <Image
               src={teamCover}
-              alt={`Cover de ${teamName}`}
+              alt={copy.coverAria(teamName)}
               width={1600}
               height={900}
               unoptimized
